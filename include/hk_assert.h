@@ -4,12 +4,6 @@
 #include <assert.h>
 #include "hk_log.h"
 
-#define hk_assert(expr) \
-    do {\
-        if (!expr) { \
-            HK_LOG("%s %d error\n", __FUNCTION__, __LINE__); \
-        } \
-    } while(0)
-
+#define hk_assert assert
 
 #endif

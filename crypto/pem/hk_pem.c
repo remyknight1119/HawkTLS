@@ -1,24 +1,23 @@
 #include <string.h>
+#include <stdint.h>
 
-#include "dv_crypto.h"
-#include "dv_errno.h"
-#include "dv_debug.h"
-#include "dv_types.h"
-#include "dv_assert.h"
+#include "hk_crypto.h"
+#include "hk_log.h"
+#include "hk_assert.h"
 
-#define DV_PEM_FORMAT_HEADER    "-----BEGIN"
-#define DV_PEM_FORMAT_END       "-----"
+#define HK_PEM_FORMAT_HEADER    "-----BEGIN"
+#define HK_PEM_FORMAT_END       "-----"
 
-#define dv_conv_ascii2bin(a)       (dv_data_ascii2bin[(a)&0x7f])
+#define hk_conv_ascii2bin(a)       (hk_data_ascii2bin[(a)&0x7f])
 
-#define DV_B64_EOLN                0xF0
-#define DV_B64_CR                  0xF1
-#define DV_B64_EOF                 0xF2
-#define DV_B64_WS                  0xE0
-#define DV_B64_ERROR               0xFF
-#define DV_B64_NOT_BASE64(a)       (((a)|0x13) == 0xF3)
+#define HK_B64_EOLN                0xF0
+#define HK_B64_CR                  0xF1
+#define HK_B64_EOF                 0xF2
+#define HK_B64_WS                  0xE0
+#define HK_B64_ERROR               0xFF
+#define HK_B64_NOT_BASE64(a)       (((a)|0x13) == 0xF3)
 
-static const dv_u8 dv_data_ascii2bin[128] = {
+static const uint8_t hk_data_ascii2bin[128] = {
     0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
     0xFF, 0xE0, 0xF0, 0xFF, 0xFF, 0xF1, 0xFF, 0xFF,
     0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
@@ -39,12 +38,12 @@ static const dv_u8 dv_data_ascii2bin[128] = {
 
 
 static void
-dv_b64_decode_init(dv_decode_ctx_t *ctx)
+hk_b64_decode_init(hk_decode_ctx_t *ctx)
 {
-    ctx->pd_length = 30;
-    ctx->pd_num = 0;
-    ctx->pd_line_num = 0;
-    ctx->pd_expect_nl = 0;
+    ctx->length = 30;
+    ctx->num = 0;
+    ctx->line_num = 0;
+    ctx->expect_nl = 0;
 }
 
 /*-
@@ -53,19 +52,19 @@ dv_b64_decode_init(dv_decode_ctx_t *ctx)
  *  1 for full line
  */
 int 
-dv_b64_decode_update(dv_decode_ctx_t *ctx, dv_u8 *out, int *outl,
-                     const dv_u8 *in, int inl)
+hk_b64_decode_update(hk_decode_ctx_t *ctx, uint8_t *out, int *outl,
+                     const uint8_t *in, int inl)
 {
     int seof = -1, eof = 0, rv = -1, ret = 0, i, v, tmp, n, ln, exp_nl;
-    dv_u8       *d = NULL;
+    uint8_t       *d = NULL;
 
-    n = ctx->pd_num;
-    d = ctx->pd_data;
-    ln = ctx->pd_line_num;
-    exp_nl = ctx->pd_expect_nl;
+    n = ctx->num;
+    d = ctx->data;
+    ln = ctx->line_num;
+    exp_nl = ctx->expect_nl;
 
     /* last line of input. */
-    if ((inl == 0) || ((n == 0) && (dv_conv_ascii2bin(in[0]) == DV_B64_EOF))) {
+    if ((inl == 0) || ((n == 0) && (hk_conv_ascii2bin(in[0]) == HK_B64_EOF))) {
         rv = 0;
         goto end;
     }
@@ -80,13 +79,13 @@ dv_b64_decode_update(dv_decode_ctx_t *ctx, dv_u8 *out, int *outl,
 
         /* Get char and put it into the buffer */
         tmp = *(in++);
-        v = dv_conv_ascii2bin(tmp);
+        v = hk_conv_ascii2bin(tmp);
         /* only save the good data :-) */
-        if (!DV_B64_NOT_BASE64(v)) {
-            dv_assert(n < (int)sizeof(ctx->pd_data));
+        if (!HK_B64_NOT_BASE64(v)) {
+            hk_assert(n < (int)sizeof(ctx->data));
             d[n++] = tmp;
             ln++;
-        } else if (v == DV_B64_ERROR) {
+        } else if (v == HK_B64_ERROR) {
             rv = -1;
             goto end;
         }
@@ -103,7 +102,7 @@ dv_b64_decode_update(dv_decode_ctx_t *ctx, dv_u8 *out, int *outl,
             eof++;
         }
 
-        if (v == DV_B64_CR) {
+        if (v == HK_B64_CR) {
             ln = 0;
             if (exp_nl) {
                 continue;
@@ -111,7 +110,7 @@ dv_b64_decode_update(dv_decode_ctx_t *ctx, dv_u8 *out, int *outl,
         }
 
         /* eoln */
-        if (v == DV_B64_EOLN) {
+        if (v == HK_B64_EOLN) {
             ln = 0;
             if (exp_nl) {
                 exp_nl = 0;
@@ -125,7 +124,7 @@ dv_b64_decode_update(dv_decode_ctx_t *ctx, dv_u8 *out, int *outl,
          * it.
          */
         if (((i + 1) == inl) && (((n & 3) == 0) || eof)) {
-            v = DV_B64_EOF;
+            v = HK_B64_EOF;
             /*
              * In case things were given us in really small records (so two
              * '=' were given in separate updates), eof may contain the
@@ -140,15 +139,15 @@ dv_b64_decode_update(dv_decode_ctx_t *ctx, dv_u8 *out, int *outl,
             /* There will never be more than two '=' */
         }
 
-        if ((v == DV_B64_EOF && (n & 3) == 0) || (n >= 64)) {
+        if ((v == HK_B64_EOF && (n & 3) == 0) || (n >= 64)) {
             /*
              * This is needed to work correctly on 64 byte input lines.  We
              * process the line and then need to accept the '\n'
              */
-            if ((v != DV_B64_EOF) && (n >= 64))
+            if ((v != HK_B64_EOF) && (n >= 64))
                 exp_nl = 1;
             if (n > 0) {
-                v = dv_b64_decode_block(out, d, n);
+                v = hk_b64_decode_block(out, d, n);
                 n = 0;
                 if (v < 0) {
                     rv = 0;
@@ -168,11 +167,11 @@ dv_b64_decode_update(dv_decode_ctx_t *ctx, dv_u8 *out, int *outl,
              * This is the case where we have had a short but valid input
              * line
              */
-            if ((v < ctx->pd_length) && eof) {
+            if ((v < ctx->length) && eof) {
                 rv = 0;
                 goto end;
             }
-            ctx->pd_length = v;
+            ctx->length = v;
 
             if (seof >= 0) {
                 rv = 0;
@@ -184,15 +183,15 @@ dv_b64_decode_update(dv_decode_ctx_t *ctx, dv_u8 *out, int *outl,
     rv = 1;
  end:
     *outl = ret;
-    ctx->pd_num = n;
-    ctx->pd_line_num = ln;
-    ctx->pd_expect_nl = exp_nl;
+    ctx->num = n;
+    ctx->line_num = ln;
+    ctx->expect_nl = exp_nl;
 
     return rv;
 }
 
 int 
-dv_b64_decode_block(dv_u8 *t, const dv_u8 *f, int n)
+hk_b64_decode_block(uint8_t *t, const uint8_t *f, int n)
 {
     int             i = 0;
     int             ret = 0;
@@ -203,37 +202,37 @@ dv_b64_decode_block(dv_u8 *t, const dv_u8 *f, int n)
     unsigned long   l = 0;
 
     /* trim white space from the start of the line. */
-    while ((dv_conv_ascii2bin(*f) == DV_B64_WS) && (n > 0)) {
+    while ((hk_conv_ascii2bin(*f) == HK_B64_WS) && (n > 0)) {
         f++;
         n--;
     }
 
     /*
-     * strip off stuff at the end of the line ascii2bin values DV_B64_WS,
-     * DV_B64_EOLN, DV_B64_EOLN and DV_B64_EOF
+     * strip off stuff at the end of the line ascii2bin values HK_B64_WS,
+     * HK_B64_EOLN, HK_B64_EOLN and HK_B64_EOF
      */
-    while ((n > 3) && (DV_B64_NOT_BASE64(dv_conv_ascii2bin(f[n - 1])))) {
+    while ((n > 3) && (HK_B64_NOT_BASE64(hk_conv_ascii2bin(f[n - 1])))) {
         n--;
     }
 
     if (n % 4 != 0) {
-        return DV_ERROR;
+        return -1;
     }
 
     for (i = 0; i < n; i += 4) {
-        a = dv_conv_ascii2bin(*(f++));
-        b = dv_conv_ascii2bin(*(f++));
-        c = dv_conv_ascii2bin(*(f++));
-        d = dv_conv_ascii2bin(*(f++));
+        a = hk_conv_ascii2bin(*(f++));
+        b = hk_conv_ascii2bin(*(f++));
+        c = hk_conv_ascii2bin(*(f++));
+        d = hk_conv_ascii2bin(*(f++));
         if ((a & 0x80) || (b & 0x80) || (c & 0x80) || (d & 0x80)) {
-            return DV_ERROR;
+            return -1;
         }
         l = ((((unsigned long)a) << 18L) |
              (((unsigned long)b) << 12L) |
              (((unsigned long)c) << 6L) | (((unsigned long)d)));
-        *(t++) = (dv_u8)(l >> 16L) & 0xff;
-        *(t++) = (dv_u8)(l >> 8L) & 0xff;
-        *(t++) = (dv_u8)(l) & 0xff;
+        *(t++) = (uint8_t)(l >> 16L) & 0xff;
+        *(t++) = (uint8_t)(l >> 8L) & 0xff;
+        *(t++) = (uint8_t)(l) & 0xff;
         ret += 3;
     }
 
@@ -241,17 +240,17 @@ dv_b64_decode_block(dv_u8 *t, const dv_u8 *f, int n)
 }
 
 int 
-dv_b64_decode_final(dv_decode_ctx_t *ctx, dv_u8 *out, int *outl)
+hk_b64_decode_final(hk_decode_ctx_t *ctx, uint8_t *out, int *outl)
 {
     int     i = 0;
 
     *outl = 0;
-    if (ctx->pd_num != 0) {
-        i = dv_b64_decode_block(out, ctx->pd_data, ctx->pd_num);
+    if (ctx->num != 0) {
+        i = hk_b64_decode_block(out, ctx->data, ctx->num);
         if (i < 0) {
-            return DV_ERROR;
+            return -1;
         }
-        ctx->pd_num = 0;
+        ctx->num = 0;
         *outl = i;
         return (1);
     }
@@ -261,67 +260,67 @@ dv_b64_decode_final(dv_decode_ctx_t *ctx, dv_u8 *out, int *outl)
 
 
 int
-dv_b64_decode(dv_decode_ctx_t *ctx, void *out, int *outl, void *in, int inl)
+hk_b64_decode(hk_decode_ctx_t *ctx, void *out, int *outl, void *in, int inl)
 {
     int     len = 0;
-    int     ret = DV_ERROR;
+    int     ret = -1;
 
-    dv_b64_decode_init(ctx);
+    hk_b64_decode_init(ctx);
 
-    ret = dv_b64_decode_update(ctx, out, outl, in, inl);
+    ret = hk_b64_decode_update(ctx, out, outl, in, inl);
     if (ret < 0) {
-        DV_DEBUG("EVP_DecodeUpdate err!\n");
-        return DV_ERROR;
+        HK_LOG("EVP_DecodeUpdate err!\n");
+        return -1;
     }
 
     len = *outl;
-    ret = dv_b64_decode_final(ctx, out, outl);
+    ret = hk_b64_decode_final(ctx, out, outl);
     if (ret < 0) {
-        DV_DEBUG("EVP_DecodeUpdate err!\n");
-        return DV_ERROR;
+        HK_LOG("EVP_DecodeUpdate err!\n");
+        return -1;
     }
 
     return len;
 }
 
 int
-dv_pem_decode(void **out, char *buf, int len)
+hk_pem_decode(void **out, char *buf, int len)
 {
-    dv_decode_ctx_t     ctx = {};
+    hk_decode_ctx_t     ctx = {};
     char                *head = NULL;
     int                 outl = 0;
     int                 size = 0;
     int                 ret = 0;
 
-    head = strstr(buf, DV_PEM_FORMAT_HEADER);
+    head = strstr(buf, HK_PEM_FORMAT_HEADER);
     if (head == NULL || head != buf) {
-        DV_DEBUG("Format1 error!\n");
-        return DV_ERROR;
+        HK_LOG("Format1 error!\n");
+        return -1;
     }
 
-    head = strstr(head + strlen(DV_PEM_FORMAT_HEADER),
-            DV_PEM_FORMAT_END);
-    if (head == NULL || head[sizeof(DV_PEM_FORMAT_END) - 1] != '\n') {
-        DV_DEBUG("Format2 error!\n");
-        return DV_ERROR;
+    head = strstr(head + strlen(HK_PEM_FORMAT_HEADER),
+            HK_PEM_FORMAT_END);
+    if (head == NULL || head[sizeof(HK_PEM_FORMAT_END) - 1] != '\n') {
+        HK_LOG("Format2 error!\n");
+        return -1;
     }
 
-    head += sizeof(DV_PEM_FORMAT_END);
-    len -= sizeof(DV_PEM_FORMAT_END);
+    head += sizeof(HK_PEM_FORMAT_END);
+    len -= sizeof(HK_PEM_FORMAT_END);
  
     size = (len*3)/4;
-    *out = dv_malloc(size);
+    *out = hk_malloc(size);
     if (*out == NULL) {
-        return DV_ERROR;
+        return -1;
     }
-    ret = dv_b64_decode(&ctx, *out, &outl, head, len);
+    ret = hk_b64_decode(&ctx, *out, &outl, head, len);
     if (ret <= 0) {
-        DV_DEBUG("Pem decode err!\n");
-        dv_free(*out);
-        return DV_ERROR;
+        HK_LOG("Pem decode err!\n");
+        hk_free(*out);
+        return -1;
     }
  
-    dv_assert(ret <= size);
+    hk_assert(ret <= size);
 
     return ret;
 }

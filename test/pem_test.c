@@ -5,10 +5,10 @@
 #include <fcntl.h>
 #include <openssl/evp.h>
 
-#include "dv_crypto.h"
+#include "hk_crypto.h"
 
 int
-dv_test_pem_decode(EVP_ENCODE_CTX *ctx, void *out, int *outl, void *in, int inl)
+hk_test_pem_decode(EVP_ENCODE_CTX *ctx, void *out, int *outl, void *in, int inl)
 {
     int     len;
     int     ret;
@@ -33,14 +33,14 @@ dv_test_pem_decode(EVP_ENCODE_CTX *ctx, void *out, int *outl, void *in, int inl)
     return len;
 }
 
-#define DV_TEST_PEM_FILE        "test/pem/ser_cacert.pem"
-#define DV_PEM_FORMAT_HEADER    "-----BEGIN"
-#define DV_PEM_FORMAT_END       "-----"
+#define HK_TEST_PEM_FILE        "test/pem/ser_cacert.pem"
+#define HK_PEM_FORMAT_HEADER    "-----BEGIN"
+#define HK_PEM_FORMAT_END       "-----"
 
 int main(void)
 {
     EVP_ENCODE_CTX  dctx;
-    dv_decode_ctx_t ctx;
+    hk_decode_ctx_t ctx;
     struct stat     st;
     int             outl;
     int             ret = -1;
@@ -52,14 +52,14 @@ int main(void)
     unsigned char   *out;
     unsigned char   *out2;
 
-    fd = open(DV_TEST_PEM_FILE, O_RDONLY);
+    fd = open(HK_TEST_PEM_FILE, O_RDONLY);
     if (fd < 0) {
-        printf("open %s failed!\n", DV_TEST_PEM_FILE);
+        printf("open %s failed!\n", HK_TEST_PEM_FILE);
         return -1;
     }
 
     if (fstat(fd, &st) < 0) {
-        printf("fstat %s failed!\n", DV_TEST_PEM_FILE);
+        printf("fstat %s failed!\n", HK_TEST_PEM_FILE);
         close(fd);
         return -1;
     }
@@ -76,29 +76,29 @@ int main(void)
     printf("rlen = %d\n", rlen);
     close(fd);
 
-    head = (unsigned char *)strstr((char *)buf, DV_PEM_FORMAT_HEADER);
+    head = (unsigned char *)strstr((char *)buf, HK_PEM_FORMAT_HEADER);
     if (head == NULL || head != buf) {
         printf("Format1 error!\n");
         goto out;
     }
 
-    head = (unsigned char *)strstr((char *)head + strlen(DV_PEM_FORMAT_HEADER),
-            DV_PEM_FORMAT_END);
-    if (head == NULL || head[sizeof(DV_PEM_FORMAT_END) - 1] != '\n') {
+    head = (unsigned char *)strstr((char *)head + strlen(HK_PEM_FORMAT_HEADER),
+            HK_PEM_FORMAT_END);
+    if (head == NULL || head[sizeof(HK_PEM_FORMAT_END) - 1] != '\n') {
         printf("Format2 error!\n");
         goto out;
     }
 
-    head += sizeof(DV_PEM_FORMAT_END);
-    rlen -= sizeof(DV_PEM_FORMAT_END);
-    ret = dv_test_pem_decode(&dctx, out, &outl, head, rlen);
+    head += sizeof(HK_PEM_FORMAT_END);
+    rlen -= sizeof(HK_PEM_FORMAT_END);
+    ret = hk_test_pem_decode(&dctx, out, &outl, head, rlen);
     if (ret < 0) {
         printf("Pem decode err!\n");
         goto out;
     }
 
     len = ret;
-    ret = dv_b64_decode(&ctx, out2, &outl, head, rlen);
+    ret = hk_b64_decode(&ctx, out2, &outl, head, rlen);
     if (ret < 0) {
         printf("Pem decode err!\n");
         goto out;
@@ -108,7 +108,7 @@ int main(void)
         printf("Pem decode result err!\n");
         goto out;
     }
-    printf("Test pem %s ok!\n", DV_TEST_PEM_FILE);
+    printf("Test pem %s ok!\n", HK_TEST_PEM_FILE);
     ret = 0;
     
 out:

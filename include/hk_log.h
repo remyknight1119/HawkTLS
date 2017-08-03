@@ -3,7 +3,7 @@
 
 #include <stdio.h>
 
-#define HK_LOG(priority, format, ...) \
+#define HK_LOG(format, ...) \
     do { \
         fprintf(stdout, "[%s, %d]: "format, __FUNCTION__, \
                 __LINE__, ##__VA_ARGS__); \

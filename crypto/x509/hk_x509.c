@@ -1,12 +1,10 @@
 
 #include <openssl/x509.h>
 
-#include "dv_x509.h"
-#include "dv_types.h"
-#include "dv_errno.h"
+#include "hawktls/hk_x509.h"
 
 int
-dv_d2i_x509(dv_x509_t *x509, const dv_u8 *data, dv_u32 len)
+hk_d2i_x509(hk_x509_t *x509, const uint8_t *data, uint32_t len)
 {
     X509    *x = NULL;
 #if 0
@@ -15,7 +13,7 @@ dv_d2i_x509(dv_x509_t *x509, const dv_u8 *data, dv_u32 len)
 
     x = d2i_X509(NULL, &data, (long)len);
     if (x == NULL) {
-        return DV_ERROR;
+        return -1;
     }
     if (x509) {
         //Now without free
@@ -29,5 +27,5 @@ dv_d2i_x509(dv_x509_t *x509, const dv_u8 *data, dv_u32 len)
 #endif
     //X509_free(x);
 
-    return DV_OK;
+    return 0;
 }
