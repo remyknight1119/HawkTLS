@@ -11,6 +11,7 @@
 *.dirstamp
 *.dat
 *.in
+*_test
 cscope.*
 tags
 Makefile
