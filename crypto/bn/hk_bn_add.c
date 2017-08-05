@@ -2,7 +2,7 @@
 #include "hawktls/hk_bn.h"
 
 int
-hk_bn_uadd(BIGNUM *r, const BIGNUM *a, const BIGNUM *b)
+hk_bn_uadd(HK_BIGNUM *r, const HK_BIGNUM *a, const HK_BIGNUM *b)
 {
-    return 0;
+    return 1;
 }

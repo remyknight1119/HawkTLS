@@ -23,6 +23,9 @@
 #define HK_NTOHS(a)     ntohs(a)
 #define HK_NTOHL(a)     ntohl(a)
 
+#define HK_MAX(a, b) (a > b ? a:b)
+#define HK_MIN(a, b) (a < b ? a:b)
+
 #define HK_SET_LENGTH(dest, value) \
     do { \
         typeof(value)   n; \

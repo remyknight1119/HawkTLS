@@ -3,14 +3,15 @@
 
 #define hk_bn_check_top(a) 
 
+#define HK_BN_FLG_MALLOCED      0x01
 #define hk_bn_wexpand(a, words) \
     (((words) <= (a)->dmax)?(a):hk_bn_expand2((a),(words)))
-extern BIGNUM *hk_bn_expand2(BIGNUM *b, int words);
+extern HK_BIGNUM *hk_bn_expand2(HK_BIGNUM *b, int words);
 
 #define hk_bn_correct_top(a) \
 { \
-    BN_ULONG    *ftl = NULL; \
-    int         tmp_top = (a)->top; \
+    HK_BN_ULONG     *ftl = NULL; \
+    int             tmp_top = (a)->top; \
     if (tmp_top > 0) {\
         for (ftl= &((a)->d[tmp_top - 1]); tmp_top > 0; tmp_top--) {\
             if (*(ftl--)) { \

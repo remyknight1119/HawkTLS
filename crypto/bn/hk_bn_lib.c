@@ -5,28 +5,28 @@
 #include "hk_crypto.h"
 
 void
-hk_bn_init(BIGNUM *a)
+hk_bn_init(HK_BIGNUM *a)
 {
-	memset(a, 0, sizeof(BIGNUM));
+	memset(a, 0, sizeof(HK_BIGNUM));
 }
 
-BIGNUM *
+HK_BIGNUM *
 hk_bn_new(void)
 {
-	BIGNUM     *ret = NULL;
+	HK_BIGNUM     *ret = NULL;
 
-	if ((ret = hk_calloc(sizeof(BIGNUM))) == NULL) {
+	if ((ret = hk_calloc(sizeof(HK_BIGNUM))) == NULL) {
 		return (NULL);
 	}
-	//ret->flags = BN_FLG_MALLOCED;
+	ret->flags = HK_BN_FLG_MALLOCED;
 
 	return (ret);
 }
 
 void
-hk_bn_clear_free(BIGNUM *a)
+hk_bn_clear_free(HK_BIGNUM *a)
 {
-	//int i;
+	int     i = 0;
 
 	if (a == NULL) {
 		return;
@@ -36,22 +36,23 @@ hk_bn_clear_free(BIGNUM *a)
 		memset(a->d, 0, a->dmax * sizeof(a->d[0]));
 		hk_free(a->d);
 	}
-	//i = BN_get_flags(a, BN_FLG_MALLOCED);
+	i = hk_bn_get_flags(a, HK_BN_FLG_MALLOCED);
 	memset(a, 0, sizeof(*a));
-	//if (i)
+	if (i) {
 		hk_free(a);
+    }
 }
 
 void
-hk_bn_free(BIGNUM *bn)
+hk_bn_free(HK_BIGNUM *bn)
 {
     hk_bn_clear_free(bn);
 }
 
-static BN_ULONG *
-hk_bn_expand_internal(const BIGNUM *b, int words)
+static HK_BN_ULONG *
+hk_bn_expand_internal(const HK_BIGNUM *b, int words)
 {
-    BN_ULONG    *a = NULL;
+    HK_BN_ULONG    *a = NULL;
 
     a = hk_calloc(words*sizeof(*a));
     if (a == NULL) {
@@ -65,16 +66,16 @@ hk_bn_expand_internal(const BIGNUM *b, int words)
 /* This is an internal function that should not be used in applications.
  * It ensures that 'b' has enough room for a 'words' word number
  * and initialises any unused part of b->d with leading zeros.
- * It is mostly used by the various BIGNUM routines. If there is an error,
+ * It is mostly used by the various HK_BIGNUM routines. If there is an error,
  * NULL is returned. If not, 'b' is returned. */
 
-BIGNUM *
-hk_bn_expand2(BIGNUM *b, int words)
+HK_BIGNUM *
+hk_bn_expand2(HK_BIGNUM *b, int words)
 {
 	hk_bn_check_top(b);
 
 	if (words > b->dmax) {
-		BN_ULONG *a = hk_bn_expand_internal(b, words);
+		HK_BN_ULONG *a = hk_bn_expand_internal(b, words);
 		if (!a) {
 			return NULL;
         }
@@ -91,8 +92,8 @@ hk_bn_expand2(BIGNUM *b, int words)
 	return b;
 }
 
-BIGNUM *
-hk_bn_expand(BIGNUM *a, int bits)
+HK_BIGNUM *
+hk_bn_expand(HK_BIGNUM *a, int bits)
 {
 	if (bits > (INT_MAX - HK_BN_BITS2 + 1))
 		return (NULL);
@@ -104,9 +105,9 @@ hk_bn_expand(BIGNUM *a, int bits)
 }
 
 int
-hk_bn_set_word(BIGNUM *a, BN_ULONG w)
+hk_bn_set_word(HK_BIGNUM *a, HK_BN_ULONG w)
 {
-	if (hk_bn_expand(a, (int)sizeof(BN_ULONG) * 8) == NULL) {
+	if (hk_bn_expand(a, (int)sizeof(HK_BN_ULONG) * 8) == NULL) {
 		return (0);
     }
 
@@ -117,14 +118,14 @@ hk_bn_set_word(BIGNUM *a, BN_ULONG w)
 }
 
 
-BIGNUM *
-hk_bn_bin2bn(const uint8_t *s, int len, BIGNUM *ret)
+HK_BIGNUM *
+hk_bn_bin2bn(const uint8_t *s, int len, HK_BIGNUM *ret)
 {
-	BIGNUM      *bn = NULL;
+	HK_BIGNUM      *bn = NULL;
 	uint32_t    i = 0;
     uint32_t    m = 0;
 	uint32_t    n = 0;
-	BN_ULONG    l = 0;
+	HK_BN_ULONG    l = 0;
 
 	if (ret == NULL) {
 		ret = bn = hk_bn_new();
@@ -164,10 +165,10 @@ hk_bn_bin2bn(const uint8_t *s, int len, BIGNUM *ret)
 
 /* ignore negative */
 int
-hk_bn_bn2bin(const BIGNUM *a, unsigned char *to)
+hk_bn_bn2bin(const HK_BIGNUM *a, unsigned char *to)
 {
 	int n, i;
-	BN_ULONG l;
+	HK_BN_ULONG l;
 
 	n = i = hk_bn_num_bytes(a);
 	while (i--) {
@@ -179,10 +180,10 @@ hk_bn_bn2bin(const BIGNUM *a, unsigned char *to)
 
 
 int
-hk_bn_ucmp(const BIGNUM *a, const BIGNUM *b)
+hk_bn_ucmp(const HK_BIGNUM *a, const HK_BIGNUM *b)
 {
 	int         i;
-	BN_ULONG t1, t2, *ap, *bp;
+	HK_BN_ULONG t1, t2, *ap, *bp;
 
 	i = a->top - b->top;
 	if (i != 0)
@@ -201,7 +202,7 @@ hk_bn_ucmp(const BIGNUM *a, const BIGNUM *b)
 
 
 int
-hk_bn_num_bits_word(BN_ULONG l)
+hk_bn_num_bits_word(HK_BN_ULONG l)
 {
 	static const unsigned char bits[256] = {
 		0, 1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4,
@@ -250,7 +251,7 @@ hk_bn_num_bits_word(BN_ULONG l)
 }
 
 int
-hk_bn_num_bits(const BIGNUM *a)
+hk_bn_num_bits(const HK_BIGNUM *a)
 {
 	int     i = a->top - 1;
 
