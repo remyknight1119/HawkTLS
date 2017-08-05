@@ -184,9 +184,6 @@ hk_bn_ucmp(const BIGNUM *a, const BIGNUM *b)
 	int         i;
 	BN_ULONG t1, t2, *ap, *bp;
 
-	bn_check_top(a);
-	bn_check_top(b);
-
 	i = a->top - b->top;
 	if (i != 0)
 		return (i);
