@@ -9,6 +9,7 @@ typedef unsigned long HK_BN_ULONG;
 #define HK_BN_BYTES	    8
 #define HK_BN_BITS2	    64
 #define HK_BN_BITS4	    32
+#define HK_BN_MASK2	    (0xffffffffffffffffL)
 
 #define hk_bn_abs_is_word(a, w) ((((a)->top == 1) && \
                 ((a)->d[0] == (BN_ULONG)(w))) || \
@@ -41,6 +42,8 @@ extern void hk_bn_init(HK_BIGNUM *a);
 extern void hk_bn_clear_free(HK_BIGNUM *a);
 extern void hk_bn_free(HK_BIGNUM *bn);
 extern HK_BIGNUM *hk_bn_bin2bn(const uint8_t *s, int len, HK_BIGNUM *ret);
+extern HK_BN_ULONG hk_bn_add_words(HK_BN_ULONG *r, const HK_BN_ULONG *a, 
+        const HK_BN_ULONG *b, int n);
 //extern HK_BIGNUM *hk_bn_CTX_get(HK_BN_CTX *ctx);
 //extern HK_BN_CTX *hk_bn_CTX_new(void);
 //extern void hk_bn_CTX_free(HK_BN_CTX *ctx);
