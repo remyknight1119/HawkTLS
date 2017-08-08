@@ -5,6 +5,7 @@
 #include "hk_lib.h"
 #include "hk_test.h"
 #include "hk_print.h"
+#include "hk_log.h"
 
 static unsigned char bn_a[] =
     "\x00\xAA\x36\xAB\xCE\x88\xAC\xFD\xFF\x55\x52\x3C\x7F\xC4\x52\x3F"
@@ -48,59 +49,69 @@ test_add(void)
 
     a = BN_bin2bn(bn_a, sizeof(bn_a) - 1, a);
     if (a == NULL) {
-        fprintf(stderr, "BN_bin2bn failed!\n");
+        HK_LOG("BN_bin2bn failed!\n");
         return -1;
     }
 
     b = BN_bin2bn(bn_b, sizeof(bn_b) - 1, b);
     if (b == NULL) {
-        fprintf(stderr, "BN_bin2bn failed!\n");
+        HK_LOG("BN_bin2bn failed!\n");
         return -1;
     }
 
     if (!BN_uadd(&r, a, b)) {
-        fprintf(stderr, "BN_uadd failed!\n");
+        HK_LOG("BN_uadd failed!\n");
         return -1;
     }
 
     ah = hk_bn_bin2bn(bn_a, sizeof(bn_a) - 1, ah);
     if (ah == NULL) {
-        fprintf(stderr, "BN_bin2bn failed!\n");
+        HK_LOG("BN_bin2bn failed!\n");
         return -1;
     }
 
     bh = hk_bn_bin2bn(bn_b, sizeof(bn_b) - 1, bh);
     if (bh == NULL) {
-        fprintf(stderr, "BN_bin2bn failed!\n");
+        HK_LOG("BN_bin2bn failed!\n");
         return -1;
     }
 
     if (!hk_bn_uadd(&rh, ah, bh)) {
-        fprintf(stderr, "hk_bn_uadd failed!\n");
+        HK_LOG("hk_bn_uadd failed!\n");
         return -1;
     }
  
-    dlen = HK_MAX(sizeof(bn_a), sizeof(bn_b));
+    if (r.top != rh.top) {
+        HK_LOG("top(%d, %d) not match!\n", r.top, rh.top);
+        return -1;
+    }
+
+    dlen = r.top*HK_MAX(sizeof(BN_ULONG), sizeof(HK_BN_ULONG));
     d = malloc(dlen);
     if (d == NULL) {
-        fprintf(stderr, "Malloc d failed!\n");
+        HK_LOG("Malloc d failed!\n");
         return -1;
     }
 
     BN_bn2bin(&r, d);
-    hk_print(d, dlen);
     dh = malloc(dlen);
     if (dh == NULL) {
-        fprintf(stderr, "Malloc d failed!\n");
+        HK_LOG("Malloc d failed!\n");
         return -1;
     }
 
     hk_bn_bn2bin(&rh, dh);
-    hk_print(dh, dlen);
+    if (memcmp(d, dh, dlen) != 0) {
+        HK_LOG("Result not matched!\n");
+        hk_print(dh, dlen);
+        hk_print(d, dlen);
+        return -1;
+    }
+
     free(dh);
     free(d);
     //hk_bn_uadd(BIGNUM *r, const BIGNUM *a, const BIGNUM *b);
-    fprintf(stderr, "test add ok!\n");
+    HK_LOG("test add ok!\n");
     hk_bn_free(&rh);
     hk_bn_free(bh);
     hk_bn_free(ah);
