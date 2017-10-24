@@ -1,6 +1,7 @@
 #include <stdio.h>
 
-#include "hawktls/hk_bn.h"
+#include "internal/bn.h"
+#include <hawktls/hk_bn.h>
 #include "hk_bn_lcl.h"
 
 int

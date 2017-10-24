@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <limits.h>
 
-typedef unsigned long HK_BN_ULONG;
+#include <hawktls/hk_types.h>
 
 #define HK_BN_BYTES	    8
 #define HK_BN_BITS2	    64
@@ -22,17 +22,6 @@ typedef unsigned long HK_BN_ULONG;
 #define hk_bn_num_bytes(a)	((hk_bn_num_bits(a) + 7)/8)
 #define hk_bn_zero(a)	(hk_bn_set_word((a),0))
 #define hk_bn_get_flags(b, n)   ((b)->flags & (n))
-
-typedef struct _hk_bn_t {
-    HK_BN_ULONG     *d;     /* Pointer to an array of 'BN_BITS2' bit * chunks. */
-    int             top;    /* Index of last used d +1. */
-    /* The next are internal book keeping for bn_expand. */
-    int             dmax;   /* Size of the d array. */
-    int             neg;    /* one if the number is negative */
-    int             flags;
-} hk_bn_t;
-
-typedef hk_bn_t HK_BIGNUM;
 
 extern int hk_bn_num_bits(const HK_BIGNUM *a);
 extern int hk_bn_ucmp(const HK_BIGNUM *a, const HK_BIGNUM *b);

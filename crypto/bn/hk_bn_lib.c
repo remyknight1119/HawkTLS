@@ -1,8 +1,9 @@
 #include <string.h>
 
-#include "hawktls/hk_bn.h"
+#include <hawktls/hk_bn.h>
+#include <hawktls/hk_crypto.h>
+#include "internal/bn.h"
 #include "hk_bn_lcl.h"
-#include "hk_crypto.h"
 
 void
 hk_bn_init(HK_BIGNUM *a)

@@ -1,7 +1,8 @@
 #include <stdio.h>
 #include <openssl/bn.h>
 
-#include "hawktls/hk_bn.h"
+#include <hawktls/hk_bn.h>
+#include "internal/bn.h"
 #include "hk_lib.h"
 #include "hk_test.h"
 #include "hk_print.h"
