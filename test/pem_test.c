@@ -4,8 +4,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <openssl/evp.h>
-
-#include "hk_crypto.h"
+#include <hawktls/hk_crypto.h>
 
 int
 hk_test_pem_decode(EVP_ENCODE_CTX *ctx, void *out, int *outl, void *in, int inl)

@@ -51,5 +51,6 @@ extern HK_BN_ULONG hk_bn_add_words(HK_BN_ULONG *r, const HK_BN_ULONG *a,
 
 
 extern int hk_bn_uadd(HK_BIGNUM *r, const HK_BIGNUM *a, const HK_BIGNUM *b);
+extern int hk_bn_mul(HK_BIGNUM *r, const HK_BIGNUM *a, const HK_BIGNUM *b);
 
 #endif

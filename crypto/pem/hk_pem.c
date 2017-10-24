@@ -1,9 +1,9 @@
 #include <string.h>
 #include <stdint.h>
 
-#include "hk_crypto.h"
-#include "hk_log.h"
-#include "hk_assert.h"
+#include <hawktls/hk_crypto.h>
+#include <hk_log.h>
+#include <hk_assert.h>
 
 #define HK_PEM_FORMAT_HEADER    "-----BEGIN"
 #define HK_PEM_FORMAT_END       "-----"
