@@ -16,16 +16,17 @@
 //#include <hawktls/rand.h>
 #include <hawktls/hk_bn.h>
 #include <hawktls/hk_rsa.h>
+#include "internal/rsa.h"
 
 # define SetKey \
-  key->n = BN_bin2bn(n, sizeof(n)-1, key->n); \
-  key->e = BN_bin2bn(e, sizeof(e)-1, key->e); \
-  key->d = BN_bin2bn(d, sizeof(d)-1, key->d); \
-  key->p = BN_bin2bn(p, sizeof(p)-1, key->p); \
-  key->q = BN_bin2bn(q, sizeof(q)-1, key->q); \
-  key->dmp1 = BN_bin2bn(dmp1, sizeof(dmp1)-1, key->dmp1); \
-  key->dmq1 = BN_bin2bn(dmq1, sizeof(dmq1)-1, key->dmq1); \
-  key->iqmp = BN_bin2bn(iqmp, sizeof(iqmp)-1, key->iqmp); \
+  key->n = hk_bn_bin2bn(n, sizeof(n)-1, key->n); \
+  key->e = hk_bn_bin2bn(e, sizeof(e)-1, key->e); \
+  key->d = hk_bn_bin2bn(d, sizeof(d)-1, key->d); \
+  key->p = hk_bn_bin2bn(p, sizeof(p)-1, key->p); \
+  key->q = hk_bn_bin2bn(q, sizeof(q)-1, key->q); \
+  key->dmp1 = hk_bn_bin2bn(dmp1, sizeof(dmp1)-1, key->dmp1); \
+  key->dmq1 = hk_bn_bin2bn(dmq1, sizeof(dmq1)-1, key->dmq1); \
+  key->iqmp = hk_bn_bin2bn(iqmp, sizeof(iqmp)-1, key->iqmp); \
   memcpy(c, ctext_ex, sizeof(ctext_ex) - 1); \
   return (sizeof(ctext_ex) - 1);
 
@@ -241,7 +242,6 @@ int main(int argc, char *argv[])
             printf("PKCS #1 v1.5 encryption/decryption ok\n");
 
  oaep:
-        ERR_clear_error();
         num = RSA_public_encrypt(plen, ptext_ex, ctext, key,
                                  RSA_PKCS1_OAEP_PADDING);
         if (num != clen) {
