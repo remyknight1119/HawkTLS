@@ -18,10 +18,12 @@ typedef struct _hk_decode_ctx_t {
     int         expect_nl;
 } hk_decode_ctx_t;
 
+#if 0
 struct crypto_ex_data_st {
     STACK_OF(void) *sk;   
 };
 //DECLARE_STACK_OF(void)
+#endif
 
 extern int hk_b64_decode_block(uint8_t *t, const uint8_t *f, int n);
 extern int hk_b64_decode(hk_decode_ctx_t *ctx, void *out, int *outl,

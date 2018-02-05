@@ -1,6 +1,7 @@
 #ifndef __HK_TLS_H__
 #define __HK_TLS_H__
 
+#include "hawktls/hk_types.h"
 
 #define HK_TLS1_0_VERSION                   0x0301
 #define HK_TLS1_2_VERSION                   0x0303

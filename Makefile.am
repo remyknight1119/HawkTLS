@@ -1,4 +1,4 @@
-SUBDIRS = crypto tls test
+SUBDIRS = tls test
 #confdir=$(prefix)/conf
 include_HEADERS = include/hawktls
 #dist_conf_DATA = conf/dv_license_gen.conf conf/dv_license_info.conf
