@@ -4,10 +4,10 @@
 #include "hawktls/hk_crypto.h"
 
 
-hk_ssl_ctx_t *
-hk_ssl_ctx_new(const hk_method_t *meth)
+TLS_CTX *
+hk_tls_ctx_new(const TLS_METHOD *meth)
 {
-    hk_ssl_ctx_t    *ctx = NULL;
+    TLS_CTX    *ctx = NULL;
 
     ctx = hk_calloc(sizeof(*ctx));
     if (ctx == NULL) {
@@ -20,7 +20,7 @@ hk_ssl_ctx_new(const hk_method_t *meth)
 }
 
 void 
-hk_ssl_ctx_free(hk_ssl_ctx_t *ctx)
+hk_tls_ctx_free(TLS_CTX *ctx)
 {
     if (ctx == NULL) {
         return;
@@ -29,15 +29,38 @@ hk_ssl_ctx_free(hk_ssl_ctx_t *ctx)
     hk_free(ctx);
 }
 
-hk_ssl_t *
-hk_ssl_new(hk_ssl_ctx_t *ctx)
+TLS *
+hk_tls_new(TLS_CTX *ctx)
 {
-    return NULL;
+    TLS    *s = NULL;
+
+    if (ctx == NULL) {
+        return NULL;
+    }
+
+    if (ctx->sc_method == NULL) {
+        return NULL;
+    }
+
+    s = hk_calloc(sizeof(*s));
+    if (s == NULL) {
+        return NULL;
+    }
+
+    s->tls_ctx = ctx;
+    s->tls_method = ctx->sc_method;
+
+    return s;
 }
 
 void 
-hk_ssl_free(hk_ssl_t *s)
+hk_tls_free(TLS *s)
 {
+    if (s == NULL) {
+        return;
+    }
+
+    hk_free(s);
 }
 
 int
@@ -57,43 +80,43 @@ hk_load_error_strings(void)
 }
 
 int
-hk_ssl_accept(hk_ssl_t *s)
+hk_tls_accept(TLS *s)
 {
     return 0;
 }
 
 int
-hk_ssl_connect(hk_ssl_t *s)
+hk_tls_connect(TLS *s)
 {
     return 0;
 }
 
 int
-hk_ssl_set_fd(hk_ssl_t *s, int fd)
+hk_tls_set_fd(TLS *s, int fd)
 {
     return 0;
 }
 
 void
-hk_ssl_set_verify(hk_ssl_t *s, hk_u32 mode,
+hk_tls_set_verify(TLS *s, hk_u32 mode,
             int (*callback)(int ok, hk_x509_t *x509))
 {
 }
 
 int
-hk_ssl_read(hk_ssl_t *s, void *buf, hk_u32 len)
+hk_tls_read(TLS *s, void *buf, hk_u32 len)
 {
     return 0;
 }
 
 int
-hk_ssl_write(hk_ssl_t *s, const void *buf, hk_u32 len)
+hk_tls_write(TLS *s, const void *buf, hk_u32 len)
 {
     return 0;
 }
 
 int
-hk_ssl_shutdown(hk_ssl_t *s)
+hk_tls_shutdown(TLS *s)
 {
     return 0;
 }
