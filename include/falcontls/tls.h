@@ -57,23 +57,39 @@ typedef struct _fc_tls_t {
 } TLS;
 
 typedef struct _fc_tls_method_t {
-    fc_u16      md_version;
-    fc_u16      md_msg_max_len;
-    int         (*md_tls_new)(TLS *s);
-    void        (*md_tls_free)(TLS *s);
-    int         (*md_tls_accept)(TLS *s);
-    int         (*md_tls_connect)(TLS *s);
-    int         (*md_tls_read)(TLS *s, void *buf, fc_u32 len);
-//    int         (*md_tls_peek)(TLS *s, void *buf, fc_u32 len);
-    int         (*md_tls_write)(TLS *s, const void *buf, fc_u32 len);
-    int         (*md_tls_shutdown)(TLS *s);
-    int         (*md_tls_hello)(TLS *s);
-    int         (*md_tls_get_message)(TLS *s);
-    int         (*md_tls_parse_message)(TLS *s);
-    int         (*md_bio_get_time)(fc_u32 *t);
-    int         (*md_bio_read)(int fd, void *buf, fc_u32 len);
-    int         (*md_bio_read_file)(const char *file, void **data);
-    int         (*md_bio_write)(int fd, const void *buf, fc_u32 len);
+    fc_u32          md_version;
+    unsigned        md_flags;
+    unsigned long   md_mask;
+    int             (*md_tls_new)(TLS *s);
+    void            (*md_tls_clear)(TLS *s);
+    void            (*md_tls_free)(TLS *s);
+    int             (*md_tls_accept)(TLS *s);
+    int             (*md_tls_connect)(TLS *s);
+    int             (*md_tls_read)(TLS *s, void *buf, int len);
+    int             (*md_tls_peek)(TLS *s, void *buf, int len);
+    int             (*md_tls_write)(TLS *s, const void *buf, int len);
+    int             (*md_tls_shutdown)(TLS *s);
+    int             (*md_tls_renegotiate)(TLS *s);
+    int             (*md_tls_renegotiate_check)(TLS *s);
+    int             (*md_tls_read_bytes)(TLS *s, int type, int *recvd_type,
+                        unsigned char *buf, int len, int peek); 
+    int             (*md_tls_write_bytes)(TLS *s, int type, const void *buf_,
+                        int len);
+    int             (*md_tls_dispatch_alert)(TLS *s); 
+    long            (*md_tls_ctrl)(TLS *s, int cmd, long larg, void *parg);
+#if 0
+    long (*md_tls_ctx_ctrl) (TLS_CTX *ctx, int cmd, long larg, void *parg);
+    const TLS_CIPHER *(*get_cipher_by_char) (const unsigned char *ptr);
+    int (*put_cipher_by_char) (const TLS_CIPHER *cipher, unsigned char *ptr);
+    int (*md_tls_pending) (const TLS *s); 
+    int (*num_ciphers) (void);
+    const TLS_CIPHER *(*get_cipher) (unsigned ncipher);
+    long (*get_timeout) (void);    
+    const struct ssl3_enc_method *ssl3_enc; /* Extra TLSv3/TLS stuff */
+    int (*md_tls_version) (void);
+    long (*md_tls_callback_ctrl) (TLS *s, int cb_id, void (*fp) (void));
+    long (*md_tls_ctx_callback_ctrl) (TLS_CTX *s, int cb_id, void (*fp) (void));
+#endif
 } TLS_METHOD;
 
 typedef struct _fc_tls_ctx_t {
@@ -132,44 +148,43 @@ typedef struct _fc_tls_handshake_header_t {
     fc_u8                   hh_length[3];
 } fc_tls_handshake_header_t;
 
-extern TLS_CTX *fc_tls_ctx_new(const TLS_METHOD *meth);
-extern void fc_tls_ctx_free(TLS_CTX *ctx);
+extern TLS_CTX *FCTLS_ctx_new(const TLS_METHOD *meth);
+extern void FCTLS_ctx_free(TLS_CTX *ctx);
 
-extern TLS *fc_tls_new(TLS_CTX *ctx);
-extern void fc_tls_free(TLS *s);
+extern TLS *FCTLS_new(TLS_CTX *ctx);
+extern void FCTLS_free(TLS *s);
 
 extern int fc_library_init(void);
 extern void fc_add_all_algorighms(void);
 extern void fc_load_error_strings(void);
 
-extern int fc_tls_accept(TLS *s);
-extern int fc_tls_connect(TLS *s);
-extern int fc_tls_set_fd(TLS *s, int fd);
-extern void fc_tls_set_verify(TLS *s, fc_u32 mode,
+extern int FCTLS_accept(TLS *s);
+extern int FCTLS_connect(TLS *s);
+extern int FCTLS_set_fd(TLS *s, int fd);
+extern void FCTLS_set_verify(TLS *s, fc_u32 mode,
             int (*callback)(int ok, FC_X509 *x509));
-extern int fc_tls_read(TLS *s, void *buf, fc_u32 len);
-extern int fc_tls_write(TLS *s, const void *buf, fc_u32 len);
-extern int fc_tls_shutdown(TLS *s);
-extern int fc_tls_get_message(TLS *s);
+extern int FCTLS_read(TLS *s, void *buf, fc_u32 len);
+extern int FCTLS_write(TLS *s, const void *buf, fc_u32 len);
+extern int FCTLS_shutdown(TLS *s);
+extern int FCTLS_get_message(TLS *s);
 
 extern int fc_undefined_function(TLS *s);
 
-extern int fc_tls_ctx_use_certificate_file(TLS_CTX *ctx,
+extern int FCTLS_ctx_use_certificate_file(TLS_CTX *ctx,
             const char *file, fc_u32 type);
-extern int fc_tls_ctx_use_private_key_file(TLS_CTX *ctx,
+extern int FCTLS_ctx_use_private_key_file(TLS_CTX *ctx,
             const char *file, fc_u32 type);
-extern int fc_tls_ctx_check_private_key(const TLS_CTX *ctx);
+extern int FCTLS_ctx_check_private_key(const TLS_CTX *ctx);
 
 
-extern void fc_tls_free(TLS *s);
-extern int fc_tls_bio_accept(TLS *s);
-extern int fc_tls_bio_connect(TLS *s);
-extern int fc_tls_bio_read(TLS *s, void *buf, fc_u32 len);
-extern int fc_tls_bio_write(TLS *s, const void *buf, fc_u32 len);
-extern int fc_tls_bio_shutdown(TLS *s);
-extern int fc_tls_bio_get_message(TLS *s);
+extern void FCTLS_free(TLS *s);
+extern int FCTLS_bio_accept(TLS *s);
+extern int FCTLS_bio_connect(TLS *s);
+extern int FCTLS_bio_read(TLS *s, void *buf, fc_u32 len);
+extern int FCTLS_bio_write(TLS *s, const void *buf, fc_u32 len);
+extern int FCTLS_bio_shutdown(TLS *s);
+extern int FCTLS_bio_get_message(TLS *s);
 
-extern const TLS_METHOD *fc_tls_client_method(void);
-extern const TLS_METHOD *fc_tls_server_method(void);
+extern const TLS_METHOD *FCTLS_method(void);
 
 #endif

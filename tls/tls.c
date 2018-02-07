@@ -1,11 +1,11 @@
 
-#include "falcontls/x509.h"
-#include "falcontls/tls.h"
-#include "falcontls/crypto.h"
+#include <falcontls/x509.h>
+#include <falcontls/tls.h>
+#include <falcontls/crypto.h>
 
 
 TLS_CTX *
-fc_tls_ctx_new(const TLS_METHOD *meth)
+FCTLS_ctx_new(const TLS_METHOD *meth)
 {
     TLS_CTX    *ctx = NULL;
 
@@ -20,7 +20,7 @@ fc_tls_ctx_new(const TLS_METHOD *meth)
 }
 
 void 
-fc_tls_ctx_free(TLS_CTX *ctx)
+FCTLS_ctx_free(TLS_CTX *ctx)
 {
     if (ctx == NULL) {
         return;
@@ -30,7 +30,7 @@ fc_tls_ctx_free(TLS_CTX *ctx)
 }
 
 TLS *
-fc_tls_new(TLS_CTX *ctx)
+FCTLS_new(TLS_CTX *ctx)
 {
     TLS    *s = NULL;
 
@@ -54,7 +54,7 @@ fc_tls_new(TLS_CTX *ctx)
 }
 
 void 
-fc_tls_free(TLS *s)
+FCTLS_free(TLS *s)
 {
     if (s == NULL) {
         return;
@@ -80,43 +80,43 @@ fc_load_error_strings(void)
 }
 
 int
-fc_tls_accept(TLS *s)
+FCTLS_accept(TLS *s)
 {
     return 0;
 }
 
 int
-fc_tls_connect(TLS *s)
+FCTLS_connect(TLS *s)
 {
     return 0;
 }
 
 int
-fc_tls_set_fd(TLS *s, int fd)
+FCTLS_set_fd(TLS *s, int fd)
 {
     return 0;
 }
 
 void
-fc_tls_set_verify(TLS *s, fc_u32 mode,
+FCTLS_set_verify(TLS *s, fc_u32 mode,
             int (*callback)(int ok, FC_X509 *x509))
 {
 }
 
 int
-fc_tls_read(TLS *s, void *buf, fc_u32 len)
+FCTLS_read(TLS *s, void *buf, fc_u32 len)
 {
     return 0;
 }
 
 int
-fc_tls_write(TLS *s, const void *buf, fc_u32 len)
+FCTLS_write(TLS *s, const void *buf, fc_u32 len)
 {
     return 0;
 }
 
 int
-fc_tls_shutdown(TLS *s)
+FCTLS_shutdown(TLS *s)
 {
     return 0;
 }
