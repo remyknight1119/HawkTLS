@@ -1,8 +1,6 @@
-lib_LTLIBRARIES = libhk_crypto.la
-libhk_crypto_la_SOURCES = hk_mem.c pem/hk_pem.c x509/hk_x509.c bn/hk_bn_add.c \
-						  bn/hk_bn_lib.c bn/hk_bn_asm.c bn/hk_bn_mul.c \
-						  rsa/hk_rsa_lib.c rsa/hk_rsa_eay.c ex_data.c
-libhk_crypto_la_LDFLAGS = -version-info 1
+lib_LTLIBRARIES = libfc_crypto.la
+libfc_crypto_la_SOURCES = mem.c pem/pem.c
+libfc_crypto_la_LDFLAGS = -version-info 1
 
 AM_CPPFLAGS = -I$(srcdir)/../include
 AM_CFLAGS = -Wall -Werror

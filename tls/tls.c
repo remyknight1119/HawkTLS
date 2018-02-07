@@ -1,15 +1,15 @@
 
-#include "hawktls/hk_x509.h"
-#include "hawktls/hk_tls.h"
-#include "hawktls/hk_crypto.h"
+#include "falcontls/x509.h"
+#include "falcontls/tls.h"
+#include "falcontls/crypto.h"
 
 
 TLS_CTX *
-hk_tls_ctx_new(const TLS_METHOD *meth)
+fc_tls_ctx_new(const TLS_METHOD *meth)
 {
     TLS_CTX    *ctx = NULL;
 
-    ctx = hk_calloc(sizeof(*ctx));
+    ctx = fc_calloc(sizeof(*ctx));
     if (ctx == NULL) {
         return NULL;
     }
@@ -20,17 +20,17 @@ hk_tls_ctx_new(const TLS_METHOD *meth)
 }
 
 void 
-hk_tls_ctx_free(TLS_CTX *ctx)
+fc_tls_ctx_free(TLS_CTX *ctx)
 {
     if (ctx == NULL) {
         return;
     }
 
-    hk_free(ctx);
+    fc_free(ctx);
 }
 
 TLS *
-hk_tls_new(TLS_CTX *ctx)
+fc_tls_new(TLS_CTX *ctx)
 {
     TLS    *s = NULL;
 
@@ -42,7 +42,7 @@ hk_tls_new(TLS_CTX *ctx)
         return NULL;
     }
 
-    s = hk_calloc(sizeof(*s));
+    s = fc_calloc(sizeof(*s));
     if (s == NULL) {
         return NULL;
     }
@@ -54,69 +54,69 @@ hk_tls_new(TLS_CTX *ctx)
 }
 
 void 
-hk_tls_free(TLS *s)
+fc_tls_free(TLS *s)
 {
     if (s == NULL) {
         return;
     }
 
-    hk_free(s);
+    fc_free(s);
 }
 
 int
-hk_library_init(void)
+fc_library_init(void)
 {
     return 0;
 }
 
 void
-hk_add_all_algorighms(void)
+fc_add_all_algorighms(void)
 {
 }
 
 void
-hk_load_error_strings(void)
+fc_load_error_strings(void)
 {
 }
 
 int
-hk_tls_accept(TLS *s)
-{
-    return 0;
-}
-
-int
-hk_tls_connect(TLS *s)
+fc_tls_accept(TLS *s)
 {
     return 0;
 }
 
 int
-hk_tls_set_fd(TLS *s, int fd)
+fc_tls_connect(TLS *s)
+{
+    return 0;
+}
+
+int
+fc_tls_set_fd(TLS *s, int fd)
 {
     return 0;
 }
 
 void
-hk_tls_set_verify(TLS *s, hk_u32 mode,
-            int (*callback)(int ok, hk_x509_t *x509))
+fc_tls_set_verify(TLS *s, fc_u32 mode,
+            int (*callback)(int ok, FC_X509 *x509))
 {
 }
 
 int
-hk_tls_read(TLS *s, void *buf, hk_u32 len)
-{
-    return 0;
-}
-
-int
-hk_tls_write(TLS *s, const void *buf, hk_u32 len)
+fc_tls_read(TLS *s, void *buf, fc_u32 len)
 {
     return 0;
 }
 
 int
-hk_tls_shutdown(TLS *s)
+fc_tls_write(TLS *s, const void *buf, fc_u32 len)
+{
+    return 0;
+}
+
+int
+fc_tls_shutdown(TLS *s)
 {
     return 0;
 }

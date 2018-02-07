@@ -1,9 +1,9 @@
-#ifndef __HK_LOG_H__
-#define __HK_LOG_H__
+#ifndef __FC_LOG_H__
+#define __FC_LOG_H__
 
 #include <stdio.h>
 
-#define HK_LOG(format, ...) \
+#define FC_LOG(format, ...) \
     do { \
         fprintf(stdout, "[%s, %d]: "format, __FUNCTION__, \
                 __LINE__, ##__VA_ARGS__); \
