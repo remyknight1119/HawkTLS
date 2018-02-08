@@ -34,29 +34,30 @@ enum {
     FC_TLS_STATE_KEY_EXCHANGE,
 };
 
-struct _fc_tls_method_t;
-struct _fc_tls_ctx_t;
+typedef struct fc_tls_ctx_t TLS_CTX;
+typedef struct fc_tls_t TLS;
+typedef struct fc_tls_method_t TLS_METHOD;
 
-typedef struct _fc_tls_t {
-    fc_u32                          tls_state;
-    const struct _fc_tls_method_t   *tls_method;
-    struct _fc_tls_ctx_t            *tls_ctx;
-    void                            *tls_ca;
-    bool                            tls_server;
-    int                             tls_fd;
-    fc_u32                          tls_ca_len;
-    fc_u32                          tls_ca_mode;
-    int                             (*tls_ca_callback)(int ok, FC_X509 *x509);
+struct fc_tls_t {
+    fc_u32              tls_state;
+    const TLS_METHOD    *tls_method;
+    TLS_CTX             *tls_ctx;
+    void                *tls_ca;
+    bool                tls_server;
+    int                 tls_fd;
+    fc_u32              tls_ca_len;
+    fc_u32              tls_ca_mode;
+    int                 (*tls_ca_callback)(int ok, FC_X509 *x509);
     /* 
      * pointer to handshake message body, set by
      * md_tls_get_message 
      */
-    void                            *tls_msg;
-    int                             tls_mlen;
-    fc_u16                          tls_cipher_suite;
-} TLS;
+    void                *tls_msg;
+    int                 tls_mlen;
+    fc_u16              tls_cipher_suite;
+};
 
-typedef struct _fc_tls_method_t {
+struct fc_tls_method_t {
     fc_u32          md_version;
     unsigned        md_flags;
     unsigned long   md_mask;
@@ -90,13 +91,13 @@ typedef struct _fc_tls_method_t {
     long (*md_tls_callback_ctrl) (TLS *s, int cb_id, void (*fp) (void));
     long (*md_tls_ctx_callback_ctrl) (TLS_CTX *s, int cb_id, void (*fp) (void));
 #endif
-} TLS_METHOD;
+};
 
-typedef struct _fc_tls_ctx_t {
+struct fc_tls_ctx_t {
     const TLS_METHOD        *sc_method;
     void                    *sc_ca;
     fc_u32                  sc_ca_len;
-} TLS_CTX; 
+}; 
 
 typedef enum _FC_TLS_CONTENT_TYPE_E {
     FC_TLS_CHANGE_CIPHER_SPEC = 20,
@@ -154,9 +155,8 @@ extern void FCTLS_ctx_free(TLS_CTX *ctx);
 extern TLS *FCTLS_new(TLS_CTX *ctx);
 extern void FCTLS_free(TLS *s);
 
-extern int fc_library_init(void);
-extern void fc_add_all_algorighms(void);
-extern void fc_load_error_strings(void);
+extern int FALCONTLS_init(void);
+extern void FalconTLS_add_all_algorighms(void);
 
 extern int FCTLS_accept(TLS *s);
 extern int FCTLS_connect(TLS *s);

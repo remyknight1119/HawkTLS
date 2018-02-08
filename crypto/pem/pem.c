@@ -38,7 +38,7 @@ static const uint8_t fc_data_ascii2bin[128] = {
 
 
 static void
-fc_b64_decode_init(fc_decode_ctx_t *ctx)
+fc_b64_decode_init(FC_DECODE_CTX *ctx)
 {
     ctx->length = 30;
     ctx->num = 0;
@@ -52,7 +52,7 @@ fc_b64_decode_init(fc_decode_ctx_t *ctx)
  *  1 for full line
  */
 int 
-fc_b64_decode_update(fc_decode_ctx_t *ctx, uint8_t *out, int *outl,
+fc_b64_decode_update(FC_DECODE_CTX *ctx, uint8_t *out, int *outl,
                      const uint8_t *in, int inl)
 {
     int seof = -1, eof = 0, rv = -1, ret = 0, i, v, tmp, n, ln, exp_nl;
@@ -240,7 +240,7 @@ fc_b64_decode_block(uint8_t *t, const uint8_t *f, int n)
 }
 
 int 
-fc_b64_decode_final(fc_decode_ctx_t *ctx, uint8_t *out, int *outl)
+fc_b64_decode_final(FC_DECODE_CTX *ctx, uint8_t *out, int *outl)
 {
     int     i = 0;
 
@@ -260,7 +260,7 @@ fc_b64_decode_final(fc_decode_ctx_t *ctx, uint8_t *out, int *outl)
 
 
 int
-fc_b64_decode(fc_decode_ctx_t *ctx, void *out, int *outl, void *in, int inl)
+fc_b64_decode(FC_DECODE_CTX *ctx, void *out, int *outl, void *in, int inl)
 {
     int     len = 0;
     int     ret = -1;
@@ -286,7 +286,7 @@ fc_b64_decode(fc_decode_ctx_t *ctx, void *out, int *outl, void *in, int inl)
 int
 fc_pem_decode(void **out, char *buf, int len)
 {
-    fc_decode_ctx_t     ctx = {};
+    FC_DECODE_CTX       ctx = {};
     char                *head = NULL;
     int                 outl = 0;
     int                 size = 0;
@@ -309,14 +309,14 @@ fc_pem_decode(void **out, char *buf, int len)
     len -= sizeof(FC_PEM_FORMAT_END);
  
     size = (len*3)/4;
-    *out = fc_malloc(size);
+    *out = FALCONTLS_malloc(size);
     if (*out == NULL) {
         return -1;
     }
     ret = fc_b64_decode(&ctx, *out, &outl, head, len);
     if (ret <= 0) {
         FC_LOG("Pem decode err!\n");
-        fc_free(*out);
+        FALCONTLS_free(*out);
         return -1;
     }
  

@@ -3,7 +3,7 @@
 #include "fc_log.h"
 
 void *
-fc_crypto_malloc(size_t num, const char *file, int line)
+FC_CRYPTO_malloc(size_t num, const char *file, int line)
 {
     void    *ptr = NULL;
 
@@ -16,7 +16,7 @@ fc_crypto_malloc(size_t num, const char *file, int line)
 }
 
 void *
-fc_crypto_calloc(size_t num, const char *file, int line)
+FC_CRYPTO_calloc(size_t num, const char *file, int line)
 {
     void    *ptr = NULL;
 
@@ -29,7 +29,7 @@ fc_crypto_calloc(size_t num, const char *file, int line)
 }
 
 void
-fc_crypto_free(void *ptr)
+FC_CRYPTO_free(void *ptr)
 {
     free(ptr);
 }

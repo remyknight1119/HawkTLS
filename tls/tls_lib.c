@@ -9,7 +9,7 @@ FCTLS_ctx_new(const TLS_METHOD *meth)
 {
     TLS_CTX    *ctx = NULL;
 
-    ctx = fc_calloc(sizeof(*ctx));
+    ctx = FALCONTLS_calloc(sizeof(*ctx));
     if (ctx == NULL) {
         return NULL;
     }
@@ -26,7 +26,19 @@ FCTLS_ctx_free(TLS_CTX *ctx)
         return;
     }
 
-    fc_free(ctx);
+    FALCONTLS_free(ctx);
+}
+
+int
+FCTLS_clear(TLS *s)
+{
+    if (s->tls_method == NULL) {
+        return 0;
+    }
+
+    s->tls_method->md_tls_clear(s);
+
+    return 1;
 }
 
 TLS *
@@ -42,7 +54,7 @@ FCTLS_new(TLS_CTX *ctx)
         return NULL;
     }
 
-    s = fc_calloc(sizeof(*s));
+    s = FALCONTLS_calloc(sizeof(*s));
     if (s == NULL) {
         return NULL;
     }
@@ -50,7 +62,18 @@ FCTLS_new(TLS_CTX *ctx)
     s->tls_ctx = ctx;
     s->tls_method = ctx->sc_method;
 
+    if (!s->tls_method->md_tls_new(s)) {
+        goto err;
+    }
+
+    if (!FCTLS_clear(s)) {
+        goto err;
+    }
+
     return s;
+err:
+    FALCONTLS_free(s);
+    return NULL;
 }
 
 void 
@@ -60,23 +83,11 @@ FCTLS_free(TLS *s)
         return;
     }
 
-    fc_free(s);
-}
+    if (s->tls_method != NULL) {
+        s->tls_method->md_tls_free(s);
+    }
 
-int
-fc_library_init(void)
-{
-    return 0;
-}
-
-void
-fc_add_all_algorighms(void)
-{
-}
-
-void
-fc_load_error_strings(void)
-{
+    FALCONTLS_free(s);
 }
 
 int
@@ -120,4 +131,15 @@ FCTLS_shutdown(TLS *s)
 {
     return 0;
 }
+int
+FALCONTLS_init(void)
+{
+    return 0;
+}
+
+void
+FalconTLS_add_all_algorighms(void)
+{
+}
+
 

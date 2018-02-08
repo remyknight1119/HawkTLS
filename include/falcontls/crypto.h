@@ -10,13 +10,13 @@
 #define FC_CRYPTO_add(a,b,c)       ((*(a))+=(b))
 #define FC_PEM_DATA_LEN     80
 
-typedef struct _fc_decode_ctx_t {
+typedef struct FC_DECODE_CTX {
     int         num;
     int         length;
     uint8_t     data[FC_PEM_DATA_LEN];
     int         line_num;
     int         expect_nl;
-} fc_decode_ctx_t;
+} FC_DECODE_CTX;
 
 #if 0
 struct crypto_ex_data_st {
@@ -26,23 +26,23 @@ struct crypto_ex_data_st {
 #endif
 
 extern int fc_b64_decode_block(uint8_t *t, const uint8_t *f, int n);
-extern int fc_b64_decode(fc_decode_ctx_t *ctx, void *out, int *outl,
+extern int fc_b64_decode(FC_DECODE_CTX *ctx, void *out, int *outl,
             void *in, int inl);
 extern int fc_pem_decode(void **out, char *buf, int len);
 
-extern void *fc_crypto_malloc(size_t num, const char *file, int line);
-extern void *fc_crypto_calloc(size_t num, const char *file, int line);
-extern void fc_crypto_free(void *ptr);
+extern void *FC_CRYPTO_malloc(size_t num, const char *file, int line);
+extern void *FC_CRYPTO_calloc(size_t num, const char *file, int line);
+extern void FC_CRYPTO_free(void *ptr);
 
-#define fc_malloc(size)     fc_crypto_malloc(size, __FUNCTION__, __LINE__)
-#define fc_calloc(size)     fc_crypto_calloc(size, __FUNCTION__, __LINE__)
-#define fc_free(ptr)        fc_crypto_free(ptr)
+#define FALCONTLS_malloc(size)     FC_CRYPTO_malloc(size, __FUNCTION__, __LINE__)
+#define FALCONTLS_calloc(size)     FC_CRYPTO_calloc(size, __FUNCTION__, __LINE__)
+#define FALCONTLS_free(ptr)        FC_CRYPTO_free(ptr)
 
 #define FC_CRYPTO_LOCK_RSA          9
 
 #define CRYPTO_EX_INDEX_RSA         6
 
-int CRYPTO_new_ex_data(int class_index, void *obj, CRYPTO_EX_DATA *ad);
-void CRYPTO_free_ex_data(int class_index, void *obj, CRYPTO_EX_DATA *ad);
+//int CRYPTO_new_ex_data(int class_index, void *obj, CRYPTO_EX_DATA *ad);
+//void CRYPTO_free_ex_data(int class_index, void *obj, CRYPTO_EX_DATA *ad);
 
 #endif
