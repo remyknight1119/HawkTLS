@@ -6,7 +6,8 @@
 #include "internal/bio.h"
 
 
-FC_BIO *FC_BIO_new(const FC_BIO_METHOD *method)
+FC_BIO *
+FC_BIO_new(const FC_BIO_METHOD *method)
 {
     FC_BIO *bio = NULL;
     
@@ -46,7 +47,8 @@ err:
     return NULL;
 }
 
-int FC_BIO_free(FC_BIO *a)
+int
+FC_BIO_free(FC_BIO *a)
 {
 //    int i;
 
@@ -82,42 +84,50 @@ int FC_BIO_free(FC_BIO *a)
     return 1;
 }
 
-void FC_BIO_set_data(FC_BIO *a, void *ptr)
+void
+FC_BIO_set_data(FC_BIO *a, void *ptr)
 {
     a->b_ptr = ptr;
 }
 
-void *FC_BIO_get_data(FC_BIO *a)
+void
+*FC_BIO_get_data(FC_BIO *a)
 {
     return a->b_ptr;
 }
 
-void FC_BIO_set_init(FC_BIO *a, int init)
+void
+FC_BIO_set_init(FC_BIO *a, int init)
 {
     a->b_init = init;
 }
 
-int FC_BIO_get_init(FC_BIO *a)
+int
+FC_BIO_get_init(FC_BIO *a)
 {
     return a->b_init;
 }
 
-void FC_BIO_set_shutdown(FC_BIO *a, int shut)
+void
+FC_BIO_set_shutdown(FC_BIO *a, int shut)
 {
     a->b_shutdown = shut;
 }
 
-int FC_BIO_get_shutdown(FC_BIO *a)
+int
+FC_BIO_get_shutdown(FC_BIO *a)
 {
     return a->b_shutdown;
 }
 
-void FC_BIO_vfree(FC_BIO *a)
+void
+FC_BIO_vfree(FC_BIO *a)
 {
     FC_BIO_free(a);
 }
 
-int FC_BIO_read(FC_BIO *b, void *out, int outl)
+int
+FC_BIO_read(FC_BIO *b, void *out, int outl)
 {
     int i;
     //long (*cb) (FC_BIO *, int, const char *, int, long, long);
@@ -152,7 +162,8 @@ int FC_BIO_read(FC_BIO *b, void *out, int outl)
     return (i);
 }
 
-int FC_BIO_write(FC_BIO *b, const void *in, int inl)
+int
+FC_BIO_write(FC_BIO *b, const void *in, int inl)
 {
     int i;
     //long (*cb) (BIO *, int, const char *, int, long, long);
@@ -192,7 +203,8 @@ int FC_BIO_write(FC_BIO *b, const void *in, int inl)
     return (i);
 }
 
-int FC_BIO_puts(FC_BIO *b, const char *in)
+int
+FC_BIO_puts(FC_BIO *b, const char *in)
 {
     int i;
 //    long (*cb) (BIO *, int, const char *, int, long, long);
@@ -226,7 +238,8 @@ int FC_BIO_puts(FC_BIO *b, const char *in)
     return (i);
 }
 
-int FC_BIO_gets(FC_BIO *b, char *in, int inl)
+int
+FC_BIO_gets(FC_BIO *b, char *in, int inl)
 {
     int i;
 //    long (*cb) (BIO *, int, const char *, int, long, long);
@@ -254,6 +267,37 @@ int FC_BIO_gets(FC_BIO *b, char *in, int inl)
         i = (int)cb(b, BIO_CB_GETS | BIO_CB_RETURN, in, inl, 0L, (long)i);
 #endif
     return (i);
+}
+
+long
+FC_BIO_ctrl(FC_BIO *b, int cmd, long larg, void *parg)
+{
+    long ret;
+    //long (*cb) (BIO *, int, const char *, int, long, long);
+
+    if (b == NULL) {
+        return (0);
+    }
+
+    if ((b->b_method == NULL) || (b->b_method->bm_ctrl == NULL)) {
+        return (-2);
+    }
+
+#if 0
+    cb = b->callback;
+
+    if ((cb != NULL) &&
+        ((ret = cb(b, BIO_CB_CTRL, parg, cmd, larg, 1L)) <= 0))
+        return (ret);
+#endif
+
+    ret = b->b_method->bm_ctrl(b, cmd, larg, parg);
+
+#if 0
+    if (cb != NULL)
+        ret = cb(b, BIO_CB_CTRL | BIO_CB_RETURN, parg, cmd, larg, ret);
+#endif
+    return (ret);
 }
 
 
