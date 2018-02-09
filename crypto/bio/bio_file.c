@@ -7,6 +7,7 @@
 
 #include "internal/bio.h"
 
+#ifndef FC_OPENSSL
 static int file_write(FC_BIO *h, const char *buf, int num);
 static int file_read(FC_BIO *h, char *buf, int size);
 static int file_puts(FC_BIO *h, const char *str);
@@ -195,5 +196,5 @@ static int file_puts(FC_BIO *bp, const char *str)
 {
     return file_write(bp, str, strlen(str));
 }
-
+#endif
 

@@ -3,11 +3,20 @@
 
 #include <stdint.h>
 
-typedef struct _fc_x509_t {
-    uint32_t    x509_version;
-    void        *x509_store;
-} FC_X509;
+#ifdef FC_OPENSSL
+#include <openssl/x509.h>
+#include <openssl/ssl.h>
 
-extern int fc_d2i_x509(FC_X509 *x509, const uint8_t *data, uint32_t len);
+#define FC_X509_FILETYPE_PEM    SSL_FILETYPE_PEM
+#define FC_X509_FILETYPE_ASN1   SSL_FILETYPE_ASN1
+#define FC_X509_get0_pubkey(x)  X509_get_pubkey((X509 *)x)
+
+#define FC_X509_free X509_free
+#else
+#define FC_X509_FILETYPE_PEM    1
+#define FC_X509_FILETYPE_ASN1   2
+
+
+#endif
 
 #endif

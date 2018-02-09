@@ -5,7 +5,7 @@
 
 #include "internal/bio.h"
 
-
+#ifndef FC_OPENSSL      
 FC_BIO *
 FC_BIO_new(const FC_BIO_METHOD *method)
 {
@@ -300,4 +300,4 @@ FC_BIO_ctrl(FC_BIO *b, int cmd, long larg, void *parg)
     return (ret);
 }
 
-
+#endif

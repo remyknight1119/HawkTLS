@@ -1,9 +1,14 @@
 #ifndef __FC_BIO_H__
 #define __FC_BIO_H__
 
+#ifdef FC_OPENSSL
+#include <openssl/bio.h>
 
-typedef struct fc_bio_t FC_BIO;
-typedef struct fc_bio_method_t FC_BIO_METHOD;
+#define FC_BIO_new BIO_new
+#define FC_BIO_s_file BIO_s_file
+#define FC_BIO_read_filename BIO_read_filename
+#define FC_BIO_free BIO_free
+#else //FC_BIO_OPENSSL
 
 extern FC_BIO *FC_BIO_new(const FC_BIO_METHOD *method);
 extern int FC_BIO_free(FC_BIO *a);
@@ -19,7 +24,8 @@ extern int FC_BIO_write(FC_BIO *b, const void *in, int inl);
 extern int FC_BIO_puts(FC_BIO *b, const char *in);
 extern int FC_BIO_gets(FC_BIO *b, char *in, int inl);
 extern long FC_BIO_ctrl(FC_BIO *b, int cmd, long larg, void *parg);
-const FC_BIO_METHOD *FC_BIO_s_file(void);
+extern const FC_BIO_METHOD *FC_BIO_s_file(void);
+extern FC_BIO *FC_BIO_new_file(const char *filename, const char *mode);
 
 #define FC_BIO_set_fp(b,fp,c)  FC_BIO_ctrl(b,FC_BIO_C_SET_FILE_PTR,c,(char *)fp)
 #define FC_BIO_get_fp(b,fpp)   FC_BIO_ctrl(b,FC_BIO_C_GET_FILE_PTR,0,(char *)fpp)
@@ -40,5 +46,6 @@ const FC_BIO_METHOD *FC_BIO_s_file(void);
 #define FC_BIO_CTRL_GET_CLOSE   18
 #define FC_BIO_CTRL_SET_CLOSE   19
 #define FC_BIO_CTRL_FLUSH       20
+#endif //FC_BIO_OPENSSL
  
 #endif

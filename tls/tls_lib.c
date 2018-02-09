@@ -3,6 +3,8 @@
 #include <falcontls/tls.h>
 #include <falcontls/crypto.h>
 
+#include "tls_locl.h"
+
 
 TLS_CTX *
 FCTLS_ctx_new(const TLS_METHOD *meth)
