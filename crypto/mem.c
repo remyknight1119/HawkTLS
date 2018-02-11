@@ -28,6 +28,19 @@ FC_CRYPTO_calloc(size_t num, const char *file, int line)
     return ptr;
 }
 
+void *
+FC_CRYPTO_realloc(void *str, size_t num, const char *file, int line)
+{
+    void    *ptr = NULL;
+
+    ptr = realloc(str, num);
+    if (ptr == NULL) {
+        FC_LOG("Malloc %d failed!(%s %d)\n", (int)num, file, line);
+    }
+
+    return ptr;
+}
+
 void
 FC_CRYPTO_free(void *ptr)
 {

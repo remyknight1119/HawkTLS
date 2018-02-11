@@ -28,6 +28,8 @@
 #define FC_TLS_VERIFY_FAIL_IF_NO_PEER_CERT      0x02
 #define FC_TLS_VERIFY_CLIENT_ONCE               0x04
 
+#define FC_TLS_RT_MAX_PLAIN_LENGTH              16384
+
 enum {
     FC_TLS_STATE_INIT,
     FC_TLS_STATE_HELLO,

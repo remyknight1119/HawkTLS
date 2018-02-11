@@ -6,8 +6,14 @@
 
 #define FC_BIO_new BIO_new
 #define FC_BIO_s_file BIO_s_file
+#define FC_BIO_s_socket BIO_s_socket
 #define FC_BIO_read_filename BIO_read_filename
+#define FC_BIO_set_fd BIO_set_fd
 #define FC_BIO_free BIO_free
+#define FC_BIO_free_all BIO_free_all
+
+#define FC_BIO_NOCLOSE BIO_NOCLOSE
+
 #else //FC_BIO_OPENSSL
 
 extern FC_BIO *FC_BIO_new(const FC_BIO_METHOD *method);

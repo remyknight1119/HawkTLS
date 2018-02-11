@@ -6,41 +6,37 @@
 #include <falcontls/evp.h>
 #include <falcontls/safestack.h>
 
-typedef struct fc_tls_cert_pkey_t {
+#include "statem.h"
+
+typedef struct tls_cert_pkey_t {
     FC_X509                 *cp_x509;
     FC_EVP_PKEY             *cp_privatekey;
     FC_STACK_OF(FC_X509)    *cp_chain;
-} FC_CERT_PKEY;
+} CERT_PKEY;
 
-typedef struct fc_tls_cert_t {
-    FC_CERT_PKEY            *ct_key;
-    FC_CERT_PKEY            ct_pkeys[FC_EVP_PKEY_NUM];
-} FC_CERT;
+typedef struct tls_cert_t {
+    CERT_PKEY           *ct_key;
+    CERT_PKEY           ct_pkeys[FC_EVP_PKEY_NUM];
+} CERT;
 
 struct fc_tls_t {
-    fc_u32              tls_state;
+    TLS_STATEM          tls_statem;
+    bool                tls_server;
+    bool                tls_shutdown;
+    int                 tls_fd;
     const TLS_METHOD    *tls_method;
     TLS_CTX             *tls_ctx;
-    void                *tls_ca;
-    FC_CERT             *tls_cert;
-    bool                tls_server;
-    int                 tls_fd;
-    fc_u32              tls_ca_len;
-    fc_u32              tls_ca_mode;
-    int                 (*tls_ca_callback)(int ok, FC_X509 *x509);
-    /* 
-     * pointer to handshake message body, set by
-     * md_tls_get_message 
-     */
-    void                *tls_msg;
-    int                 tls_mlen;
-    fc_u16              tls_cipher_suite;
+    CERT                *tls_cert;
+    FC_BIO              *tls_rbio;
+    FC_BIO              *tls_wbio;
+    FC_BUF_MEM          *tls_init_buf;
+    int                 (*tls_handshake_func)(TLS *);
 };
 
 struct fc_tls_ctx_t {
     const TLS_METHOD    *sc_method;
     void                *sc_ca;
-    FC_CERT             *sc_cert;
+    CERT                *sc_cert;
     fc_u32              sc_ca_len;
 }; 
 

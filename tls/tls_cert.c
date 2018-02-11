@@ -19,7 +19,7 @@ tls_cert_type(const FC_X509 *x, const FC_EVP_PKEY *pk)
 }
 
 static int
-tls_set_cert(FC_CERT *c, FC_X509 *x)
+tls_set_cert(CERT *c, FC_X509 *x)
 {
     FC_EVP_PKEY     *pkey = NULL;
     int             i = 0;
@@ -70,7 +70,7 @@ tls_set_cert(FC_CERT *c, FC_X509 *x)
     return 1;
 }
 
-static int tls_set_pkey(FC_CERT *c, FC_EVP_PKEY *pkey)
+static int tls_set_pkey(CERT *c, FC_EVP_PKEY *pkey)
 {
     int i;
     

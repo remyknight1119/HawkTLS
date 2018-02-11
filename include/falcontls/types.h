@@ -17,11 +17,12 @@ typedef struct fc_tls_ctx_t TLS_CTX;
 typedef struct fc_tls_t TLS;
 typedef struct fc_tls_method_t TLS_METHOD;
 
+typedef struct fc_buf_mem_t FC_BUF_MEM;
+
 #define FC_OPENSSL     1
 
 #ifdef FC_OPENSSL
 #include <openssl/x509.h>
-#include <openssl/ssl.h>
 #include <openssl/bio.h>
 #include <openssl/ossl_typ.h>
 
