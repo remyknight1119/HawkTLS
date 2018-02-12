@@ -3,9 +3,10 @@
 #include <falcontls/crypto.h>
 #include <falcontls/bio.h>
 
+#include <openssl/bio.h>
+
 #include "internal/bio.h"
 
-#ifndef FC_OPENSSL      
 FC_BIO *
 FC_BIO_new(const FC_BIO_METHOD *method)
 {
@@ -16,6 +17,12 @@ FC_BIO_new(const FC_BIO_METHOD *method)
         return NULL;
     }
 
+#ifdef FC_OPENSSL
+    bio->b = BIO_new(method->m);
+    if (bio->b == NULL) {
+        goto err;
+    }
+#endif
     bio->b_method = method;
     bio->b_shutdown = 1;
     bio->b_references = 1;
@@ -78,10 +85,28 @@ FC_BIO_free(FC_BIO *a)
 
     CRYPTO_THREAD_lock_free(a->lock);
 #endif
+#ifdef FC_OPENSSL
+    if (a->b) {
+        BIO_free(a->b);
+    }
+#endif
 
     FALCONTLS_free(a);
 
     return 1;
+}
+
+int
+FC_BIO_read_filename(FC_BIO *b, const char *name)
+{
+    return (int)FC_BIO_ctrl(b, FC_BIO_C_SET_FILENAME,
+            FC_BIO_CLOSE|FC_BIO_READ, (char *)name);
+}
+
+int
+FC_BIO_set_fd(FC_BIO *b, int fd, int flags)
+{
+    return FC_BIO_ctrl(b, FC_BIO_C_SET_FD, flags, (void *)&fd);
 }
 
 void
@@ -300,4 +325,3 @@ FC_BIO_ctrl(FC_BIO *b, int cmd, long larg, void *parg)
     return (ret);
 }
 
-#endif

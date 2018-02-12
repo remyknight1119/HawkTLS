@@ -5,9 +5,10 @@
 #include <falcontls/crypto.h>
 #include <falcontls/bio.h>
 
+#include <openssl/bio.h>
+
 #include "internal/bio.h"
 
-#ifndef FC_OPENSSL
 static int file_write(FC_BIO *h, const char *buf, int num);
 static int file_read(FC_BIO *h, char *buf, int size);
 static int file_puts(FC_BIO *h, const char *str);
@@ -16,17 +17,20 @@ static long file_ctrl(FC_BIO *h, int cmd, long arg1, void *arg2);
 static int file_new(FC_BIO *h);
 static int file_free(FC_BIO *data);
 
+#ifdef FC_OPENSSL
+static FC_BIO_METHOD methods_filep = {
+#else
 static const FC_BIO_METHOD methods_filep = {
-    FC_BIO_TYPE_FILE,
-    "FILE pointer",
-    file_write,
-    file_read,
-    file_puts,
-    file_gets,
-    file_ctrl,
-    file_new,
-    file_free,
-    NULL,
+#endif
+    .bm_type = FC_BIO_TYPE_FILE,
+    .bm_name = "FILE pointer",
+    .bm_write = file_write,
+    .bm_read = file_read,
+    .bm_puts = file_puts,
+    .bm_gets = file_gets,
+    .bm_ctrl = file_ctrl,
+    .bm_create = file_new,
+    .bm_destroy = file_free,
 };
 
 FC_BIO *FC_BIO_new_file(const char *filename, const char *mode)
@@ -52,6 +56,9 @@ FC_BIO *FC_BIO_new_file(const char *filename, const char *mode)
 
 const FC_BIO_METHOD *FC_BIO_s_file(void)
 {
+#ifdef FC_OPENSSL
+    methods_filep.m = BIO_s_file();
+#endif
     return (&methods_filep);
 }
 
@@ -120,14 +127,14 @@ static long file_ctrl(FC_BIO *b, int cmd, long num, void *ptr)
 
     switch (cmd) {
     case FC_BIO_C_FILE_SEEK:
-    case FC_BIO_CTRL_RESET:
+    case FC_BIO_C_RESET:
         ret = (long)fseek(fp, num, 0);
         break;
-    case FC_BIO_CTRL_EOF:
+    case FC_BIO_C_EOF:
         ret = (long)feof(fp);
         break;
     case FC_BIO_C_FILE_TELL:
-    case FC_BIO_CTRL_INFO:
+    case FC_BIO_C_INFO:
         ret = ftell(fp);
         break;
     case FC_BIO_C_SET_FILE_PTR:
@@ -137,6 +144,9 @@ static long file_ctrl(FC_BIO *b, int cmd, long num, void *ptr)
         b->b_init = 1;
         break;
     case FC_BIO_C_SET_FILENAME:
+#ifdef FC_OPENSSL
+        return BIO_ctrl(b->b,BIO_C_SET_FILENAME, BIO_CLOSE|BIO_FP_READ, ptr);
+#endif
         file_free(b);
         b->b_shutdown = (int)num & FC_BIO_CLOSE;
         fp = fopen(ptr, p);
@@ -154,13 +164,13 @@ static long file_ctrl(FC_BIO *b, int cmd, long num, void *ptr)
             *fpp = (FILE *)b->b_ptr;
         }
         break;
-    case FC_BIO_CTRL_GET_CLOSE:
+    case FC_BIO_C_GET_CLOSE:
         ret = (long)b->b_shutdown;
         break;
-    case FC_BIO_CTRL_SET_CLOSE:
+    case FC_BIO_C_SET_CLOSE:
         b->b_shutdown = (int)num;
         break;
-    case FC_BIO_CTRL_FLUSH:
+    case FC_BIO_C_FLUSH:
         st = fflush((FILE *)b->b_ptr);
         if (st == EOF) {
             ret = 0;
@@ -196,5 +206,4 @@ static int file_puts(FC_BIO *bp, const char *str)
 {
     return file_write(bp, str, strlen(str));
 }
-#endif
 

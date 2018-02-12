@@ -12,11 +12,6 @@ enum {
 };
 
 extern int FC_EVP_PKEY_id(const FC_EVP_PKEY *pkey);
-
-#ifdef FC_OPENSSL
-#include <openssl/evp.h>
-
-#define FC_EVP_PKEY_free EVP_PKEY_free
-#endif
+extern void FC_EVP_PKEY_free(FC_EVP_PKEY *pkey);
 
 #endif

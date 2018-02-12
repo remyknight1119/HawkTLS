@@ -184,14 +184,14 @@ FCTLS_get_wbio(const TLS *s)
 void
 FCTLS_set0_rbio(TLS *s, FC_BIO *rbio)
 {
-    FC_BIO_free_all(s->tls_rbio);
+    FC_BIO_free(s->tls_rbio);
     s->tls_rbio = rbio;
 }
 
 void
 FCTLS_set0_wbio(TLS *s, FC_BIO *wbio)
 {
-    FC_BIO_free_all(s->tls_wbio);
+    FC_BIO_free(s->tls_wbio);
     s->tls_wbio = wbio;
 }
 
@@ -228,10 +228,10 @@ FCTLS_set_fd(TLS *s, int fd)
     FC_BIO  *bio = NULL;
 
     bio = FC_BIO_new(FC_BIO_s_socket());
-
     if (bio == NULL) {
         goto err;
     }
+
     FC_BIO_set_fd(bio, fd, FC_BIO_NOCLOSE);
     FCTLS_set_bio(s, bio, bio);
     ret = 1;

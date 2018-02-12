@@ -3,7 +3,12 @@
 
 #include <falcontls/bio.h>
 
+#include <openssl/bio.h>
+
 struct fc_bio_method_t {
+#ifdef FC_OPENSSL
+    BIO_METHOD  *m;
+#endif
     int         bm_type;
     const char  *bm_name;
     int         (*bm_write)(FC_BIO *, const char *, int);
@@ -13,10 +18,12 @@ struct fc_bio_method_t {
     long        (*bm_ctrl)(FC_BIO *, int, long, void *);
     int         (*bm_create)(FC_BIO *);
     int         (*bm_destroy)(FC_BIO *);
-//    long        (*bm_callback_ctrl)(FC_BIO *, int, bio_info_cb *);
 };
 
 struct fc_bio_t {
+#ifdef FC_OPENSSL
+    BIO                     *b;
+#endif
     const FC_BIO_METHOD     *b_method;
     long                    (*b_callback) (struct fc_bio_t *, int,
                                 const char *, int, long, long);

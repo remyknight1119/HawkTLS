@@ -17,23 +17,16 @@ typedef struct fc_tls_ctx_t TLS_CTX;
 typedef struct fc_tls_t TLS;
 typedef struct fc_tls_method_t TLS_METHOD;
 
+typedef struct fc_x509_t FC_X509;
 typedef struct fc_buf_mem_t FC_BUF_MEM;
+typedef struct fc_evp_peky_t FC_EVP_PKEY;
+typedef struct fc_bio_t FC_BIO;
+typedef struct fc_bio_method_t FC_BIO_METHOD;
 
 #define FC_OPENSSL     1
 
 #ifdef FC_OPENSSL
-#include <openssl/x509.h>
-#include <openssl/bio.h>
-#include <openssl/ossl_typ.h>
-
-typedef X509 FC_X509;
-typedef BIO FC_BIO;
-typedef BIO_METHOD FC_BIO_METHOD;
-typedef EVP_PKEY FC_EVP_PKEY;
 #else  //FC_OPENSSL
-typedef struct fc_x509_t FC_X509;
-typedef struct fc_bio_t FC_BIO;
-typedef struct fc_bio_method_t FC_BIO_METHOD;
 #endif//FC_OPENSSL
 
 #endif
