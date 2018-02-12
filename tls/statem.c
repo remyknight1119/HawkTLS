@@ -3,7 +3,7 @@
 #include <falcontls/buffer.h>
 
 #include "statem.h"
-#include "record.h"
+#include "record_locl.h"
 #include "tls_locl.h"
 
 static int

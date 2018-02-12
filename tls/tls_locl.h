@@ -7,6 +7,7 @@
 #include <falcontls/safestack.h>
 
 #include "statem.h"
+#include "record_locl.h"
 
 typedef struct tls_cert_pkey_t {
     FC_X509                 *cp_x509;
@@ -31,6 +32,8 @@ struct fc_tls_t {
     FC_BIO              *tls_wbio;
     FC_BUF_MEM          *tls_init_buf;
     int                 (*tls_handshake_func)(TLS *);
+    RECORD_LAYER        tls_rlayer;
+    fc_u32              tls_max_send_fragment;
 };
 
 struct fc_tls_ctx_t {
@@ -38,6 +41,7 @@ struct fc_tls_ctx_t {
     void                *sc_ca;
     CERT                *sc_cert;
     fc_u32              sc_ca_len;
+    fc_u32              sc_max_send_fragment;
 }; 
 
 struct fc_tls_method_t {

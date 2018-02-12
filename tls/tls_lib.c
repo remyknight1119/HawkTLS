@@ -18,6 +18,7 @@ FCTLS_ctx_new(const TLS_METHOD *meth)
     }
 
     ctx->sc_method = meth;
+    ctx->sc_max_send_fragment = FC_TLS_RT_MAX_PLAIN_LENGTH;
 
     return ctx;
 }
@@ -64,6 +65,7 @@ FCTLS_new(TLS_CTX *ctx)
 
     s->tls_ctx = ctx;
     s->tls_method = ctx->sc_method;
+    s->tls_max_send_fragment = ctx->sc_max_send_fragment;
 
     if (!s->tls_method->md_tls_new(s)) {
         goto err;

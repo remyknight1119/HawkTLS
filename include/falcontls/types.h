@@ -25,8 +25,4 @@ typedef struct fc_bio_method_t FC_BIO_METHOD;
 
 #define FC_OPENSSL     1
 
-#ifdef FC_OPENSSL
-#else  //FC_OPENSSL
-#endif//FC_OPENSSL
-
 #endif

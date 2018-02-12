@@ -29,6 +29,15 @@
 #define FC_TLS_VERIFY_CLIENT_ONCE               0x04
 
 #define FC_TLS_RT_MAX_PLAIN_LENGTH              16384
+#define FC_TLS_RT_HEADER_LENGTH                 5
+#define FC_TLS_RT_MAX_MD_SIZE                   64
+#define FC_TLS_RT_MAX_CIPHER_BLOCK_SIZE         16
+#define FC_TLS_RT_MAX_ENCRYPTED_OVERHEAD        (256 + FC_TLS_RT_MAX_MD_SIZE)
+#define FC_TLS_RT_SEND_MAX_ENCRYPTED_OVERHEAD \
+        (FC_TLS_RT_MAX_CIPHER_BLOCK_SIZE + FC_TLS_RT_MAX_MD_SIZE)
+
+/* The maximum number of encrypt/decrypt pipelines we can support */
+#define FC_TLS_MAX_PIPELINES                    32
 
 enum {
     FC_TLS_STATE_INIT,
