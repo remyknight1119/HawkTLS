@@ -3,20 +3,284 @@
 #include <falcontls/buffer.h>
 
 #include "statem.h"
+#include "packet.h"
 #include "record_locl.h"
 #include "tls_locl.h"
+
+/* Sub state machine return values */
+typedef enum {
+    /* Something bad happened or NBIO */
+    SUB_STATE_ERROR,
+    /* Sub state finished go to the next sub state */
+    SUB_STATE_FINISHED,
+    /* Sub state finished and handshake was completed */
+    SUB_STATE_END_HANDSHAKE
+} SUB_STATE_RETURN;
+
+//static SUB_STATE_RETURN read_state_machine(TLS *s);
+//static SUB_STATE_RETURN write_state_machine(TLS *s);
+
+static void
+init_read_state_machine(TLS *s)
+{
+    TLS_STATEM  *st = &s->tls_statem;
+
+    st->sm_read_state = READ_STATE_HEADER;
+}
+
+static void
+init_write_state_machine(TLS *s)
+{
+    TLS_STATEM  *st = &s->tls_statem;
+
+    st->sm_write_state = WRITE_STATE_TRANSITION;
+}
+
+static SUB_STATE_RETURN
+read_state_machine(TLS *s)
+{
+#if 0
+    TLS_STATEM          *st = &s->tls_statem;
+    int                 (*transition)(TLS *s, int mt);
+    MSG_PROCESS_RETURN  (*process_message)(TLS *s, PACKET *pkt);
+    WORK_STATE          (*post_process_message)(TLS *s, WORK_STATE wst);
+    fc_ulong            (*max_message_size) (TLS *s);
+    int                 ret = 0;
+    int                 mt = 0;
+    fc_ulong            len = 0;
+    PACKET              pkt = {};
+
+    if (s->server) {
+        transition = tls_statem_server_read_transition;
+        process_message = tls_statem_server_process_message;
+        max_message_size = tls_statem_server_max_message_size;
+        post_process_message = tls_statem_server_post_process_message;
+    } else {
+        transition = tls_statem_client_read_transition;
+        process_message = tls_statem_client_process_message;
+        max_message_size = tls_statem_client_max_message_size;
+        post_process_message = tls_statem_client_post_process_message;
+    }
+
+#if 0
+    if (st->read_state_first_init) {
+        s->first_packet = 1;
+        st->read_state_first_init = 0;
+    }
+#endif
+
+    while (1) {
+        switch (st->read_state) {
+        case READ_STATE_HEADER:
+            /* Get the state the peer wants to move to */
+            ret = tls_get_message_header(s, &mt);
+
+            if (ret == 0) {
+                /* Could be non-blocking IO */
+                return SUB_STATE_ERROR;
+            }
+
+            /*
+             * Validate that we are allowed to move to the new state and move
+             * to that state if so
+             */
+            if (!transition(s, mt)) {
+                return SUB_STATE_ERROR;
+            }
+
+            if (s->s3->tmp.message_size > max_message_size(s)) {
+                ssl3_send_alert(s, TLS3_AL_FATAL, TLS_AD_ILLEGAL_PARAMETER);
+                return SUB_STATE_ERROR;
+            }
+
+            /* dtls_get_message already did this */
+            if (!TLS_IS_DTLS(s)
+                    && s->s3->tmp.message_size > 0
+                    && !grow_init_buf(s, s->s3->tmp.message_size
+                                         + TLS3_HM_HEADER_LENGTH)) {
+                ssl3_send_alert(s, TLS3_AL_FATAL, TLS_AD_INTERNAL_ERROR);
+                return SUB_STATE_ERROR;
+            }
+
+            st->read_state = READ_STATE_BODY;
+            /* Fall through */
+
+        case READ_STATE_BODY:
+            ret = tls_get_message_body(s, &len);
+            if (ret == 0) {
+                return SUB_STATE_ERROR;
+            }
+
+            s->first_packet = 0;
+            if (!PACKET_buf_init(&pkt, s->init_msg, len)) {
+                ssl3_send_alert(s, TLS3_AL_FATAL, TLS_AD_INTERNAL_ERROR);
+                TLSerr(TLS_F_READ_STATE_MACHINE, ERR_R_INTERNAL_ERROR);
+                return SUB_STATE_ERROR;
+            }
+            ret = process_message(s, &pkt);
+
+            /* Discard the packet data */
+            s->init_num = 0;
+
+            switch (ret) {
+            case MSG_PROCESS_ERROR:
+                return SUB_STATE_ERROR;
+
+            case MSG_PROCESS_FINISHED_READING:
+                if (TLS_IS_DTLS(s)) {
+                    dtls1_stop_timer(s);
+                }
+                return SUB_STATE_FINISHED;
+
+            case MSG_PROCESS_CONTINUE_PROCESSING:
+                st->read_state = READ_STATE_POST_PROCESS;
+                st->read_state_work = WORK_MORE_A;
+                break;
+
+            default:
+                st->read_state = READ_STATE_HEADER;
+                break;
+            }
+            break;
+
+        case READ_STATE_POST_PROCESS:
+            st->read_state_work = post_process_message(s, st->read_state_work);
+            switch (st->read_state_work) {
+            default:
+                return SUB_STATE_ERROR;
+
+            case WORK_FINISHED_CONTINUE:
+                st->read_state = READ_STATE_HEADER;
+                break;
+
+            case WORK_FINISHED_STOP:
+                return SUB_STATE_FINISHED;
+            }
+            break;
+
+        default:
+            /* Shouldn't happen */
+            tls_send_alert(s, TLS3_AL_FATAL, TLS_AD_INTERNAL_ERROR);
+#endif
+            return SUB_STATE_ERROR;
+#if 0
+        }
+    }
+#endif
+}
+
+static SUB_STATE_RETURN
+write_state_machine(TLS *s)
+{
+#if 0
+    TLS_STATEM *st = &s->statem;
+    int ret;
+    WRITE_TRAN(*transition) (TLS *s);
+    WORK_STATE(*pre_work) (TLS *s, WORK_STATE wst);
+    WORK_STATE(*post_work) (TLS *s, WORK_STATE wst);
+    int (*construct_message) (TLS *s);
+    void (*cb) (const TLS *ssl, int type, int val) = NULL;
+
+    cb = get_callback(s);
+
+    if (s->server) {
+        transition = tls_statem_server_write_transition;
+        pre_work = tls_statem_server_pre_work;
+        post_work = tls_statem_server_post_work;
+        construct_message = tls_statem_server_construct_message;
+    } else {
+        transition = tls_statem_client_write_transition;
+        pre_work = tls_statem_client_pre_work;
+        post_work = tls_statem_client_post_work;
+        construct_message = tls_statem_client_construct_message;
+    }
+
+    while (1) {
+        switch (st->write_state) {
+        case WRITE_STATE_TRANSITION:
+            switch (transition(s)) {
+            case WRITE_TRAN_CONTINUE:
+                st->write_state = WRITE_STATE_PRE_WORK;
+                st->write_state_work = WORK_MORE_A;
+                break;
+
+            case WRITE_TRAN_FINISHED:
+                return SUB_STATE_FINISHED;
+                break;
+
+            default:
+                return SUB_STATE_ERROR;
+            }
+            break;
+
+        case WRITE_STATE_PRE_WORK:
+            switch (st->write_state_work = pre_work(s, st->write_state_work)) {
+            default:
+                return SUB_STATE_ERROR;
+
+            case WORK_FINISHED_CONTINUE:
+                st->write_state = WRITE_STATE_SEND;
+                break;
+
+            case WORK_FINISHED_STOP:
+                return SUB_STATE_END_HANDSHAKE;
+            }
+            if (construct_message(s) == 0)
+                return SUB_STATE_ERROR;
+
+            /* Fall through */
+
+        case WRITE_STATE_SEND:
+            ret = statem_do_write(s);
+            if (ret <= 0) {
+                return SUB_STATE_ERROR;
+            }
+            st->write_state = WRITE_STATE_POST_WORK;
+            st->write_state_work = WORK_MORE_A;
+            /* Fall through */
+
+        case WRITE_STATE_POST_WORK:
+            switch (st->write_state_work = post_work(s, st->write_state_work)) {
+            default:
+                return SUB_STATE_ERROR;
+
+            case WORK_FINISHED_CONTINUE:
+                st->write_state = WRITE_STATE_TRANSITION;
+                break;
+
+            case WORK_FINISHED_STOP:
+                return SUB_STATE_END_HANDSHAKE;
+            }
+            break;
+
+        default:
+#endif
+            return SUB_STATE_ERROR;
+#if 0
+        }
+    }
+#endif
+}
+
+TLS_HANDSHAKE_STATE 
+TLS_get_state(const TLS *s)
+{
+    return s->tls_statem.sm_hand_state;
+}
+
 
 static int
 tls_state_machine(TLS *s, int server)
 {
     TLS_STATEM  *st = &s->tls_statem;
     FC_BUF_MEM  *buf = NULL;
+    int         ssret = 0;
     int         ret = -1;
 
     st->sm_in_handshake++;
-    if (st->sm_state == TLS_MSG_FLOW_UNINITED || 
-            st->sm_state == TLS_MSG_FLOW_RENEGOTIATE) {
-        if (st->sm_state == TLS_MSG_FLOW_UNINITED) {
+    if (st->sm_state == MSG_FLOW_UNINITED || 
+            st->sm_state == MSG_FLOW_RENEGOTIATE) {
+        if (st->sm_state == MSG_FLOW_UNINITED) {
             st->sm_hand_state = TLS_ST_BEFORE;
         }
         s->tls_server = server;
@@ -34,8 +298,37 @@ tls_state_machine(TLS *s, int server)
         if (!tls_setup_buffers(s)) {
             goto end;
         }
+
+        st->sm_state = MSG_FLOW_WRITING;
+        init_write_state_machine(s);
     }
 
+    while (st->sm_state != MSG_FLOW_FINISHED) {
+        if (st->sm_state == MSG_FLOW_READING) {
+            ssret = read_state_machine(s);
+            if (ssret == SUB_STATE_FINISHED) {
+                st->sm_state = MSG_FLOW_WRITING;
+                init_write_state_machine(s);
+            } else {
+                goto end;
+            }
+        } else if (st->sm_state == MSG_FLOW_WRITING) {
+            ssret = write_state_machine(s);
+            if (ssret == SUB_STATE_FINISHED) {
+                st->sm_state = MSG_FLOW_READING;
+                init_read_state_machine(s);
+            } else if (ssret == SUB_STATE_END_HANDSHAKE) {
+                st->sm_state = MSG_FLOW_FINISHED;
+            } else {
+                goto end;
+            }
+        } else {
+            goto end;
+        }
+    }
+
+    st->sm_state = MSG_FLOW_UNINITED;
+    ret = 1;
 end:
     st->sm_in_handshake--;
     FC_BUF_MEM_free(buf);
