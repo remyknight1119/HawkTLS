@@ -9,6 +9,30 @@
 #include "statem.h"
 #include "record_locl.h"
 
+#define TLS_HM_HEADER_LENGTH                4
+
+#define TLS_RT_CHANGE_CIPHER_SPEC           20
+#define TLS_RT_ALERT                        21
+#define TLS_RT_HANDSHAKE                    22
+#define TLS_RT_APPLICATION_DATA             23
+
+#define TLS_HANDSHAKE_TYPE_HELLO_REQUEST        0
+#define TLS_HANDSHAKE_TYPE_CLIENT_HELLO         1
+#define TLS_HANDSHAKE_TYPE_SERVER_HELLO         2
+#define TLS_HANDSHAKE_TYPE_SESSION_TICKET       4
+#define TLS_HANDSHAKE_TYPE_HELLO_RETRY_REQUEST  6
+#define TLS_HANDSHAKE_TYPE_ENCRYPTED_EXTENSIONS 8
+#define TLS_HANDSHAKE_TYPE_CERTIFICATE          11
+#define TLS_HANDSHAKE_TYPE_SERVER_KEY_EXCHANGE  12
+#define TLS_HANDSHAKE_TYPE_CERTIFICATE_REQUEST  13
+#define TLS_HANDSHAKE_TYPE_SERVER_HELLO_DONE    14
+#define TLS_HANDSHAKE_TYPE_CERTIFICATE_VERIFY   15
+#define TLS_HANDSHAKE_TYPE_CLIENT_KEY_EXCHANGE  16
+#define TLS_HANDSHAKE_TYPE_SERVER_CONFIGURATION 17
+#define TLS_HANDSHAKE_TYPE_FINISHED             20
+#define TLS_HANDSHAKE_TYPE_KEY_UPDATE           24
+
+
 typedef struct tls_cert_pkey_t {
     FC_X509                 *cp_x509;
     FC_EVP_PKEY             *cp_privatekey;
@@ -31,9 +55,18 @@ struct fc_tls_t {
     FC_BIO              *tls_rbio;
     FC_BIO              *tls_wbio;
     FC_BUF_MEM          *tls_init_buf;
+    void                *tls_init_msg;             /* pointer to handshake message body */
     int                 (*tls_handshake_func)(TLS *);
     RECORD_LAYER        tls_rlayer;
     fc_u32              tls_max_send_fragment;
+    int                 tls_hit;                    /* reusing a previous session */
+    int                 tls_first_packet; 
+    int                 tls_init_num; 
+    int                 tls_init_off; 
+    struct {
+        fc_ulong        tm_message_size;
+        int             tm_message_type;
+    } tls_tmp;
 };
 
 struct fc_tls_ctx_t {

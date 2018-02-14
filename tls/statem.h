@@ -60,6 +60,33 @@ typedef enum {
     MSG_FLOW_FINISHED
 } MSG_FLOW_STATE;
 
+/*
+ * Valid return codes used for functions performing work prior to or after
+ * sending or receiving a message
+ */
+typedef enum {
+    /* Something went wrong */
+    WORK_ERROR,
+    /* We're done working and there shouldn't be anything else to do after */
+    WORK_FINISHED_STOP,
+    /* We're done working move onto the next thing */
+    WORK_FINISHED_CONTINUE,
+    /* We're working on phase A */
+    WORK_MORE_A,
+    /* We're working on phase B */
+    WORK_MORE_B
+} WORK_STATE;
+
+/* Write transition return codes */
+typedef enum {
+    /* Something went wrong */
+    WRITE_TRAN_ERROR,
+    /* A transition was successfully completed and we should continue */
+    WRITE_TRAN_CONTINUE,
+    /* There is no more write work to be done */
+    WRITE_TRAN_FINISHED
+} WRITE_TRAN;
+
 /* Read states */
 typedef enum {
     READ_STATE_HEADER,
@@ -78,14 +105,20 @@ typedef enum {
 typedef struct tls_statem_t {
     MSG_FLOW_STATE      sm_state;
     WRITE_STATE         sm_write_state;
+    WORK_STATE          sm_write_state_work;
     READ_STATE          sm_read_state;
+    WORK_STATE          sm_read_state_work;
     TLS_HANDSHAKE_STATE sm_hand_state;
     bool                sm_init;
+    int                 sm_read_state_first_init;
     int                 sm_in_handshake;
 } TLS_STATEM;
 
 int tls_statem_accept(TLS *s);
 int tls_statem_connect(TLS *s);
 int TLS_init(TLS *s);
+int tls_get_message_header(TLS *s, int *mt);
+int tls_get_message_body(TLS *s, fc_ulong *len);
+int tls_do_write(TLS *s, int type);
 
 #endif

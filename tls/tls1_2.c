@@ -45,7 +45,8 @@ tls1_2_peek(TLS *s, void *buf, int len)
 int
 tls1_2_write(TLS *s, const void *buf, int len)
 {
-    return 0;
+    return s->tls_method->md_tls_write_bytes(s, TLS_RT_APPLICATION_DATA,
+                buf, len);
 }
 
 int
