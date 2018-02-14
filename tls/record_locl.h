@@ -85,9 +85,15 @@ typedef struct record_layer_t {
     TLS_BUFFER      rl_wbuf[FC_TLS_MAX_PIPELINES];
     TLS_RECORD      rl_rrec[FC_TLS_MAX_PIPELINES];
     fc_u32          rl_numwpipes;
+    /* number of bytes sent so far */
+    fc_u32          rl_wnum;
+    /* number bytes written */
+    int             rl_wpend_tot;
 } RECORD_LAYER;
 
 int tls_setup_buffers(TLS *s);
-
+int tls1_2_read_bytes(TLS *s, int type, int *recvd_type,
+        unsigned char *buf, int len, int peek);
+int tls1_2_write_bytes(TLS *s, int type, const void *buf, int len);
 
 #endif

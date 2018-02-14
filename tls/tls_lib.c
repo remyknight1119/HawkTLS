@@ -19,6 +19,7 @@ FCTLS_ctx_new(const TLS_METHOD *meth)
 
     ctx->sc_method = meth;
     ctx->sc_max_send_fragment = FC_TLS_RT_MAX_PLAIN_LENGTH;
+    ctx->sc_split_send_fragment = FC_TLS_RT_MAX_PLAIN_LENGTH;
 
     return ctx;
 }
@@ -66,6 +67,8 @@ FCTLS_new(TLS_CTX *ctx)
     s->tls_ctx = ctx;
     s->tls_method = ctx->sc_method;
     s->tls_max_send_fragment = ctx->sc_max_send_fragment;
+    s->tls_split_send_fragment = ctx->sc_split_send_fragment;
+    s->tls_max_pipelines = ctx->sc_max_pipelines;
 
     if (!s->tls_method->md_tls_new(s)) {
         goto err;
@@ -111,6 +114,12 @@ FCTLS_do_handshake(TLS *s)
     }
 
     return ret;
+}
+
+TLS_RWSTATE
+TLS_want(const TLS *s)
+{
+    return (s->tls_rwstate);
 }
 
 void 

@@ -32,6 +32,22 @@
 #define TLS_HANDSHAKE_TYPE_FINISHED             20
 #define TLS_HANDSHAKE_TYPE_KEY_UPDATE           24
 
+typedef enum {
+    TLS_NOTHING = 1,
+    TLS_WRITING,
+    TLS_READING,
+    TLS_X509_LOOKUP,
+    TLS_ASYNC_PAUSED,
+    TLS_ASYNC_NO_JOBS,
+} TLS_RWSTATE;
+
+/* These will only be used when doing non-blocking IO */
+#define TLS_want_nothing(s)     (TLS_want(s) == TLS_NOTHING)
+#define TLS_want_read(s)        (TLS_want(s) == TLS_READING)
+#define TLS_want_write(s)       (TLS_want(s) == TLS_WRITING)
+#define TLS_want_x509_lookup(s) (TLS_want(s) == TLS_X509_LOOKUP)
+#define TLS_want_async(s)       (TLS_want(s) == TLS_ASYNC_PAUSED)
+#define TLS_want_async_job(s)   (TLS_want(s) == TLS_ASYNC_NO_JOBS)
 
 typedef struct tls_cert_pkey_t {
     FC_X509                 *cp_x509;
@@ -59,6 +75,9 @@ struct fc_tls_t {
     int                 (*tls_handshake_func)(TLS *);
     RECORD_LAYER        tls_rlayer;
     fc_u32              tls_max_send_fragment;
+    fc_u32              tls_split_send_fragment;
+    fc_u32              tls_max_pipelines;
+    TLS_RWSTATE         tls_rwstate;
     int                 tls_hit;                    /* reusing a previous session */
     int                 tls_first_packet; 
     int                 tls_init_num; 
@@ -75,6 +94,8 @@ struct fc_tls_ctx_t {
     CERT                *sc_cert;
     fc_u32              sc_ca_len;
     fc_u32              sc_max_send_fragment;
+    fc_u32              sc_split_send_fragment;
+    fc_u32              sc_max_pipelines;
 }; 
 
 struct fc_tls_method_t {
@@ -152,12 +173,10 @@ int tls1_2_write(TLS *s, const void *buf, int len);
 int tls1_2_shutdown(TLS *s);
 int tls1_2_renegotiate(TLS *s);
 int tls1_2_renegotiate_check(TLS *s);
-int tls1_2_read_bytes(TLS *s, int type, int *recvd_type,
-        unsigned char *buf, int len, int peek);
-int tls1_2_write_bytes(TLS *s, int type, const void *buf, int len);
 int tls1_2_dispatch_alert(TLS *s);
 long tls1_2_ctrl(TLS *s, int cmd, long larg, void *parg);
 int tls_security_cert(TLS *s, TLS_CTX *ctx, FC_X509 *x, int vfy, int is_ee);
+TLS_RWSTATE TLS_want(const TLS *s);
 
 
 

@@ -68,19 +68,6 @@ tls1_2_renegotiate_check(TLS *s)
 }
 
 int
-tls1_2_read_bytes(TLS *s, int type, int *recvd_type,
-        unsigned char *buf, int len, int peek)
-{
-    return 0;
-}
-
-int
-tls1_2_write_bytes(TLS *s, int type, const void *buf, int len)
-{
-    return 0;
-}
-
-int
 tls1_2_dispatch_alert(TLS *s)
 {
     return 0;
