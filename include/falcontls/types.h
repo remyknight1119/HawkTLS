@@ -22,6 +22,7 @@ typedef struct fc_buf_mem_t FC_BUF_MEM;
 typedef struct fc_evp_peky_t FC_EVP_PKEY;
 typedef struct fc_bio_t FC_BIO;
 typedef struct fc_bio_method_t FC_BIO_METHOD;
+typedef struct fc_evp_cipher_ctx_t FC_EVP_CIPHER_CTX;
 
 #define FC_OPENSSL     1
 

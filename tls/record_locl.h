@@ -23,6 +23,12 @@
 #define RECORD_LAYER_set_first_record(rl)       ((rl)->rl_is_first_record = 1)
 #define RECORD_LAYER_clear_first_record(rl)     ((rl)->rl_is_first_record = 0)
 
+#define TLS_BUFFER_get_left(b)              ((b)->bf_left)
+#define TLS_BUFFER_set_left(b, l)           ((b)->bf_left = (l))
+#define TLS_BUFFER_get_buf(b)               ((b)->bf_buf)
+#define TLS_BUFFER_get_offset(b)            ((b)->bf_offset)
+#define TLS_BUFFER_set_offset(b, o)         ((b)->bf_offset = (o))
+
 typedef struct tls_buffer_t {
     /* at least TLS_RT_MAX_PACKET_SIZE bytes, see tls_setup_buffers() */
     fc_u8   *bf_buf;
@@ -81,6 +87,7 @@ typedef struct tls_record_t {
 typedef struct record_layer_t {
     TLS             *rl_tls;
     fc_u8           *rl_packet;
+    const fc_u8     *rl_wpend_buf;
     TLS_BUFFER      rl_rbuf;
     TLS_BUFFER      rl_wbuf[FC_TLS_MAX_PIPELINES];
     TLS_RECORD      rl_rrec[FC_TLS_MAX_PIPELINES];
@@ -89,11 +96,35 @@ typedef struct record_layer_t {
     fc_u32          rl_wnum;
     /* number bytes written */
     int             rl_wpend_tot;
+    int             rl_wpend_type;
+    int             rl_wpend_ret;
 } RECORD_LAYER;
+
+#define TLS_RECORD_get_type(r)                 ((r)->rd_type)
+#define TLS_RECORD_set_type(r, t)              ((r)->rd_type = (t))
+#define TLS_RECORD_get_length(r)               ((r)->rd_length)
+#define TLS_RECORD_set_length(r, l)            ((r)->rd_length = (l))
+#define TLS_RECORD_add_length(r, l)            ((r)->rd_length += (l))
+#define TLS_RECORD_sub_length(r, l)            ((r)->rd_length -= (l))
+#define TLS_RECORD_get_data(r)                 ((r)->rd_data)
+#define TLS_RECORD_set_data(r, d)              ((r)->rd_data = (d))
+#define TLS_RECORD_get_input(r)                ((r)->rd_input)
+#define TLS_RECORD_set_input(r, i)             ((r)->rd_input = (i))
+#define TLS_RECORD_reset_input(r)              ((r)->rd_input = (r)->rd_data)
+#define TLS_RECORD_get_seq_num(r)              ((r)->rd_seq_num)
+#define TLS_RECORD_get_off(r)                  ((r)->rd_off)
+#define TLS_RECORD_set_off(r, o)               ((r)->rd_off = (o))
+#define TLS_RECORD_add_off(r, o)               ((r)->rd_off += (o))
+#define TLS_RECORD_get_epoch(r)                ((r)->rd_epoch)
+#define TLS_RECORD_is_read(r)                  ((r)->rd_read)
+#define TLS_RECORD_set_read(r)                 ((r)->rd_read = 1)
+
 
 int tls_setup_buffers(TLS *s);
 int tls1_2_read_bytes(TLS *s, int type, int *recvd_type,
-        unsigned char *buf, int len, int peek);
+        fc_u8 *buf, int len, int peek);
 int tls1_2_write_bytes(TLS *s, int type, const void *buf, int len);
+int tls_setup_write_buffer(TLS *s, fc_u32 numwpipes, size_t len);
+int RECORD_LAYER_write_pending(const RECORD_LAYER *rl);
 
 #endif

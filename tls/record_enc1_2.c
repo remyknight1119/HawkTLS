@@ -1,6 +1,11 @@
+#include <string.h>
 
 #include <falcontls/tls.h>
+
+#include "statem.h"
 #include "tls_locl.h"
+#include "tls1_2.h"
+#include "record_locl.h"
 
 int
 tls1_2_read_bytes(TLS *s, int type, int *recvd_type, fc_u8 *buf,
@@ -19,177 +24,157 @@ static int
 do_tls1_2_write(TLS *s, int type, const fc_u8 *buf, fc_u32 *pipelens, 
         fc_u32 numpipes, int create_empty_fragment)
 {
-#if 0
-    unsigned char *outbuf[SSL_MAX_PIPELINES], *plen[SSL_MAX_PIPELINES];
-    SSL3_RECORD wr[SSL_MAX_PIPELINES];
-    int i, mac_size, clear = 0;
-    int prefix_len = 0;
-    int eivlen;
-    size_t align = 0;
-    SSL3_BUFFER *wb;
-    SSL_SESSION *sess;
-    unsigned int totlen = 0;
-    unsigned int j;
+    TLS_BUFFER  *wb = NULL;
+    TLS_SESSION *sess = NULL;
+    fc_u8       *outbuf[FC_TLS_MAX_PIPELINES] = {};
+    fc_u8       *plen[FC_TLS_MAX_PIPELINES] = {};
+    TLS_RECORD  wr[FC_TLS_MAX_PIPELINES] = {};
+    int         i = 0;
+    int         mac_size = 1;
+    //int         clear = 0;
+    int         prefix_len = 0;
+    int         eivlen = 0;
+    size_t      align = 0;
+    fc_u32      totlen = 0;
+    fc_u32      j = 0;
 
-    for (j = 0; j < numpipes; j++)
+    for (j = 0; j < numpipes; j++) {
         totlen += pipelens[j];
+    }
+
     /*
-     * first check if there is a SSL3_BUFFER still being written out.  This
+     * first check if there is a TLS_BUFFER still being written out.  This
      * will happen with non blocking IO
      */
-    if (RECORD_LAYER_write_pending(&s->rlayer))
-        return (ssl3_write_pending(s, type, buf, totlen));
+    if (RECORD_LAYER_write_pending(&s->tls_rlayer)) {
+        return (tls1_2_write_pending(s, type, buf, totlen));
+    }
 
     /* If we have an alert to send, lets send it */
-    if (s->s3->alert_dispatch) {
-        i = s->method->ssl_dispatch_alert(s);
-        if (i <= 0)
+    if (s->tls_1_2.st_alert_dispatch) {
+        i = s->tls_method->md_tls_dispatch_alert(s);
+        if (i <= 0) {
             return (i);
+        }
         /* if it went, fall through and send more stuff */
     }
 
-    if (s->rlayer.numwpipes < numpipes)
-        if (!ssl3_setup_write_buffer(s, numpipes, 0))
+    if (s->tls_rlayer.rl_numwpipes < numpipes)
+        if (!tls_setup_write_buffer(s, numpipes, 0)) {
             return -1;
+        }
 
-    if (totlen == 0 && !create_empty_fragment)
+    if (totlen == 0 && !create_empty_fragment) {
         return 0;
+    }
 
-    sess = s->session;
-
-    if ((sess == NULL) ||
-        (s->enc_write_ctx == NULL) || (EVP_MD_CTX_md(s->write_hash) == NULL)) {
-        clear = s->enc_write_ctx ? 0 : 1; /* must be AEAD cipher */
+    sess = s->tls_session;
+    if ((sess == NULL) || (s->tls_enc_write_ctx == NULL)
+            /* || (EVP_MD_CTX_md(s->write_hash) == NULL)*/) {
+        //clear = /*s->enc_write_ctx ? 0 : */1; /* must be AEAD cipher */
         mac_size = 0;
     } else {
-        mac_size = EVP_MD_CTX_size(s->write_hash);
-        if (mac_size < 0)
+        //mac_size = EVP_MD_CTX_size(s->write_hash);
+        if (mac_size < 0) {
             goto err;
+        }
     }
 
     /*
      * 'create_empty_fragment' is true only when this function calls itself
      */
+#if 0
     if (!clear && !create_empty_fragment && !s->s3->empty_fragment_done) {
-        /*
-         * countermeasure against known-IV weakness in CBC ciphersuites (see
-         * http://www.openssl.org/~bodo/tls-cbc.txt)
-         */
-
-        if (s->s3->need_empty_fragments && type == SSL3_RT_APPLICATION_DATA) {
+        if (s->s3->need_empty_fragments && type == TLS3_RT_APPLICATION_DATA) {
             /*
              * recursive function call with 'create_empty_fragment' set; this
              * prepares and buffers the data for an empty fragment (these
              * 'prefix_len' bytes are sent out later together with the actual
              * payload)
              */
-            unsigned int tmppipelen = 0;
+            fc_u32 tmppipelen = 0;
 
-            prefix_len = do_ssl3_write(s, type, buf, &tmppipelen, 1, 1);
+            prefix_len = do_tls1_2_write(s, type, buf, &tmppipelen, 1, 1);
             if (prefix_len <= 0)
                 goto err;
 
             if (prefix_len >
-                (SSL3_RT_HEADER_LENGTH + SSL3_RT_SEND_MAX_ENCRYPTED_OVERHEAD)) {
+                (TLS3_RT_HEADER_LENGTH + TLS3_RT_SEND_MAX_ENCRYPTED_OVERHEAD)) {
                 /* insufficient space */
-                SSLerr(SSL_F_DO_SSL3_WRITE, ERR_R_INTERNAL_ERROR);
+                TLSerr(TLS_F_DO_TLS3_WRITE, ERR_R_INTERNAL_ERROR);
                 goto err;
             }
         }
 
         s->s3->empty_fragment_done = 1;
     }
+#endif
 
     if (create_empty_fragment) {
-        wb = &s->rlayer.wbuf[0];
-#if defined(SSL3_ALIGN_PAYLOAD) && SSL3_ALIGN_PAYLOAD!=0
-        /*
-         * extra fragment would be couple of cipher blocks, which would be
-         * multiple of SSL3_ALIGN_PAYLOAD, so if we want to align the real
-         * payload, then we can just pretend we simply have two headers.
-         */
-        align = (size_t)SSL3_BUFFER_get_buf(wb) + 2 * SSL3_RT_HEADER_LENGTH;
-        align = SSL3_ALIGN_PAYLOAD - 1 - ((align - 1) % SSL3_ALIGN_PAYLOAD);
-#endif
-        outbuf[0] = SSL3_BUFFER_get_buf(wb) + align;
-        SSL3_BUFFER_set_offset(wb, align);
+        wb = &s->tls_rlayer.rl_wbuf[0];
+        outbuf[0] = TLS_BUFFER_get_buf(wb) + align;
+        TLS_BUFFER_set_offset(wb, align);
     } else if (prefix_len) {
-        wb = &s->rlayer.wbuf[0];
-        outbuf[0] = SSL3_BUFFER_get_buf(wb) + SSL3_BUFFER_get_offset(wb)
+        wb = &s->tls_rlayer.rl_wbuf[0];
+        outbuf[0] = TLS_BUFFER_get_buf(wb) + TLS_BUFFER_get_offset(wb)
             + prefix_len;
     } else {
         for (j = 0; j < numpipes; j++) {
-            wb = &s->rlayer.wbuf[j];
-#if defined(SSL3_ALIGN_PAYLOAD) && SSL3_ALIGN_PAYLOAD!=0
-            align = (size_t)SSL3_BUFFER_get_buf(wb) + SSL3_RT_HEADER_LENGTH;
-            align = SSL3_ALIGN_PAYLOAD - 1 - ((align - 1) % SSL3_ALIGN_PAYLOAD);
-#endif
-            outbuf[j] = SSL3_BUFFER_get_buf(wb) + align;
-            SSL3_BUFFER_set_offset(wb, align);
+            wb = &s->tls_rlayer.rl_wbuf[j];
+            outbuf[j] = TLS_BUFFER_get_buf(wb) + align;
+            TLS_BUFFER_set_offset(wb, align);
         }
     }
 
     /* Explicit IV length, block ciphers appropriate version flag */
-    if (s->enc_write_ctx && SSL_USE_EXPLICIT_IV(s)) {
+    if (s->tls_enc_write_ctx && TLS_USE_EXPLICIT_IV(s)) {
+#if 0
         int mode = EVP_CIPHER_CTX_mode(s->enc_write_ctx);
-        if (mode == EVP_CIPH_CBC_MODE) {
-            eivlen = EVP_CIPHER_CTX_iv_length(s->enc_write_ctx);
-            if (eivlen <= 1)
-                eivlen = 0;
-        }
         /* Need explicit part of IV for GCM mode */
-        else if (mode == EVP_CIPH_GCM_MODE)
-            eivlen = EVP_GCM_TLS_EXPLICIT_IV_LEN;
-        else if (mode == EVP_CIPH_CCM_MODE)
+        if (mode == EVP_CIPH_GCM_MODE || mode == EVP_CIPH_CCM_MODE) {
             eivlen = EVP_CCM_TLS_EXPLICIT_IV_LEN;
-        else
+        } else {
             eivlen = 0;
-    } else
+        }
+#endif
+    } else {
         eivlen = 0;
+    }
 
     totlen = 0;
-    /* Clear our SSL3_RECORD structures */
-    memset(wr, 0, sizeof wr);
     for (j = 0; j < numpipes; j++) {
         /* write the header */
         *(outbuf[j]++) = type & 0xff;
-        SSL3_RECORD_set_type(&wr[j], type);
+        TLS_RECORD_set_type(&wr[j], type);
 
-        *(outbuf[j]++) = (s->version >> 8);
+        *(outbuf[j]++) = (s->tls_version >> 8);
         /*
          * Some servers hang if initial client hello is larger than 256 bytes
          * and record version number > TLS 1.0
          */
-        if (SSL_get_state(s) == TLS_ST_CW_CLNT_HELLO
-            && !s->renegotiate && TLS1_get_version(s) > TLS1_VERSION)
+        if (TLS_get_state(s) == TLS_ST_CW_CLNT_HELLO
+            /*&& !s->renegotiate*/) {
             *(outbuf[j]++) = 0x1;
-        else
-            *(outbuf[j]++) = s->version & 0xff;
+        } else {
+            *(outbuf[j]++) = s->tls_version & 0xff;
+        }
 
         /* field where we are to write out packet length */
         plen[j] = outbuf[j];
         outbuf[j] += 2;
 
         /* lets setup the record stuff. */
-        SSL3_RECORD_set_data(&wr[j], outbuf[j] + eivlen);
-        SSL3_RECORD_set_length(&wr[j], (int)pipelens[j]);
-        SSL3_RECORD_set_input(&wr[j], (unsigned char *)&buf[totlen]);
+        TLS_RECORD_set_data(&wr[j], outbuf[j] + eivlen);
+        TLS_RECORD_set_length(&wr[j], (int)pipelens[j]);
+        TLS_RECORD_set_input(&wr[j], (fc_u8 *)&buf[totlen]);
         totlen += pipelens[j];
 
         /*
          * we now 'read' from wr->input, wr->length bytes into wr->data
          */
 
-        /* first we compress */
-        if (s->compress != NULL) {
-            if (!ssl3_do_compress(s, &wr[j])) {
-                SSLerr(SSL_F_DO_SSL3_WRITE, SSL_R_COMPRESSION_FAILURE);
-                goto err;
-            }
-        } else {
-            memcpy(wr[j].data, wr[j].input, wr[j].length);
-            SSL3_RECORD_reset_input(&wr[j]);
-        }
+        memcpy(wr[j].rd_data, wr[j].rd_input, wr[j].rd_length);
+        TLS_RECORD_reset_input(&wr[j]);
 
         /*
          * we should still have the output to wr->data and the input from
@@ -197,50 +182,51 @@ do_tls1_2_write(TLS *s, int type, const fc_u8 *buf, fc_u32 *pipelens,
          * wb->buf
          */
 
-        if (!SSL_WRITE_ETM(s) && mac_size != 0) {
+#if 0
+        if (!TLS_WRITE_ETM(s) && mac_size != 0) {
             if (s->method->ssl3_enc->mac(s, &wr[j],
                                          &(outbuf[j][wr[j].length + eivlen]),
                                          1) < 0)
                 goto err;
-            SSL3_RECORD_add_length(&wr[j], mac_size);
+            TLS_RECORD_add_length(&wr[j], mac_size);
         }
+#endif
 
-        SSL3_RECORD_set_data(&wr[j], outbuf[j]);
-        SSL3_RECORD_reset_input(&wr[j]);
+        TLS_RECORD_set_data(&wr[j], outbuf[j]);
+        TLS_RECORD_reset_input(&wr[j]);
 
         if (eivlen) {
             /*
              * if (RAND_pseudo_bytes(p, eivlen) <= 0) goto err;
              */
-            SSL3_RECORD_add_length(&wr[j], eivlen);
+            TLS_RECORD_add_length(&wr[j], eivlen);
         }
     }
 
-    if (s->method->ssl3_enc->enc(s, wr, numpipes, 1) < 1)
+    if (s->tls_method->md_enc->em_enc(s, wr, numpipes, 1) < 1) {
         goto err;
+    }
 
     for (j = 0; j < numpipes; j++) {
-        if (SSL_WRITE_ETM(s) && mac_size != 0) {
+#if 0
+        if (TLS_WRITE_ETM(s) && mac_size != 0) {
             if (s->method->ssl3_enc->mac(s, &wr[j],
                                          outbuf[j] + wr[j].length, 1) < 0)
                 goto err;
-            SSL3_RECORD_add_length(&wr[j], mac_size);
+            TLS_RECORD_add_length(&wr[j], mac_size);
         }
+#endif
 
         /* record length after mac and block padding */
-        s2n(SSL3_RECORD_get_length(&wr[j]), plen[j]);
-
-        if (s->msg_callback)
-            s->msg_callback(1, 0, SSL3_RT_HEADER, plen[j] - 5, 5, s,
-                            s->msg_callback_arg);
+        s2n(TLS_RECORD_get_length(&wr[j]), plen[j]);
 
         /*
          * we should now have wr->data pointing to the encrypted data, which is
          * wr->length long
          */
-        SSL3_RECORD_set_type(&wr[j], type); /* not needed but helps for
+        TLS_RECORD_set_type(&wr[j], type); /* not needed but helps for
                                              * debugging */
-        SSL3_RECORD_add_length(&wr[j], SSL3_RT_HEADER_LENGTH);
+        TLS_RECORD_add_length(&wr[j], TLS_RT_HEADER_LENGTH);
 
         if (create_empty_fragment) {
             /*
@@ -249,30 +235,28 @@ do_tls1_2_write(TLS *s, int type, const fc_u8 *buf, fc_u32 *pipelens,
              */
             if (j > 0) {
                 /* We should never be pipelining an empty fragment!! */
-                SSLerr(SSL_F_DO_SSL3_WRITE, ERR_R_INTERNAL_ERROR);
                 goto err;
             }
-            return SSL3_RECORD_get_length(wr);
+            return TLS_RECORD_get_length(wr);
         }
 
         /* now let's set up wb */
-        SSL3_BUFFER_set_left(&s->rlayer.wbuf[j],
-                             prefix_len + SSL3_RECORD_get_length(&wr[j]));
+        TLS_BUFFER_set_left(&s->tls_rlayer.rl_wbuf[j],
+                             prefix_len + TLS_RECORD_get_length(&wr[j]));
     }
 
     /*
      * memorize arguments so that ssl3_write_pending can detect bad write
      * retries later
      */
-    s->rlayer.wpend_tot = totlen;
-    s->rlayer.wpend_buf = buf;
-    s->rlayer.wpend_type = type;
-    s->rlayer.wpend_ret = totlen;
+    s->tls_rlayer.rl_wpend_tot = totlen;
+    s->tls_rlayer.rl_wpend_buf = buf;
+    s->tls_rlayer.rl_wpend_type = type;
+    s->tls_rlayer.rl_wpend_ret = totlen;
 
     /* we now just need to write the buffer */
     return tls1_2_write_pending(s, type, buf, totlen);
  err:
-#endif
     return -1;
 }
 
@@ -371,8 +355,8 @@ tls1_2_write_bytes(TLS *s, int type, const void *buf, int len)
         }
 
         if ((i == (int)n) /*||
-                (type == SSL3_RT_APPLICATION_DATA &&
-                 (s->mode & SSL_MODE_ENABLE_PARTIAL_WRITE))*/) {
+                (type == TLS3_RT_APPLICATION_DATA &&
+                 (s->mode & TLS_MODE_ENABLE_PARTIAL_WRITE))*/) {
             /*
              * next chunk of data should get another prepended empty fragment
              * in ciphersuites with known-IV weakness:

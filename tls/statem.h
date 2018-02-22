@@ -120,5 +120,6 @@ int TLS_init(TLS *s);
 int tls_get_message_header(TLS *s, int *mt);
 int tls_get_message_body(TLS *s, fc_ulong *len);
 int tls_do_write(TLS *s, int type);
+TLS_HANDSHAKE_STATE TLS_get_state(const TLS *s);
 
 #endif
