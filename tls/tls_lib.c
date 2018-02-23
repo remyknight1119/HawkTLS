@@ -8,7 +8,7 @@
 
 
 TLS_CTX *
-FCTLS_ctx_new(const TLS_METHOD *meth)
+FCTLS_CTX_new(const TLS_METHOD *meth)
 {
     TLS_CTX    *ctx = NULL;
 
@@ -25,7 +25,7 @@ FCTLS_ctx_new(const TLS_METHOD *meth)
 }
 
 void 
-FCTLS_ctx_free(TLS_CTX *ctx)
+FCTLS_CTX_free(TLS_CTX *ctx)
 {
     if (ctx == NULL) {
         return;

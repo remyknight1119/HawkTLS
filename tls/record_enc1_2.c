@@ -1,6 +1,7 @@
 #include <string.h>
 
 #include <falcontls/tls.h>
+#include <falcontls/bio.h>
 
 #include "statem.h"
 #include "tls_locl.h"
@@ -17,7 +18,60 @@ tls1_2_read_bytes(TLS *s, int type, int *recvd_type, fc_u8 *buf,
 static int 
 tls1_2_write_pending(TLS *s, int type, const fc_u8 *buf, fc_u32 len)
 {
-    return 0;
+    TLS_BUFFER      *wb = s->tls_rlayer.rl_wbuf;
+    fc_u32          currbuf = 0;
+    int             i = 0;
+
+    if ((s->tls_rlayer.rl_wpend_tot > (int)len)
+        || ((s->tls_rlayer.rl_wpend_buf != buf)/* &&
+            !(s->mode & SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER)*/)
+        || (s->tls_rlayer.rl_wpend_type != type)) {
+        return (-1);
+    }
+
+    for (;;) {
+        /* Loop until we find a buffer we haven't written out yet */
+        if (TLS_BUFFER_get_left(&wb[currbuf]) == 0
+            && currbuf < s->tls_rlayer.rl_numwpipes - 1) {
+            currbuf++;
+            continue;
+        }
+
+        if (s->tls_wbio != NULL) {
+            s->tls_rwstate = TLS_WRITING;
+            i = FC_BIO_write(s->tls_wbio, (char *)
+                          &(TLS_BUFFER_get_buf(&wb[currbuf])
+                            [TLS_BUFFER_get_offset(&wb[currbuf])]),
+                          (fc_u32)TLS_BUFFER_get_left(&wb[currbuf]));
+        } else {
+            i = -1;
+        }
+
+        if (i == TLS_BUFFER_get_left(&wb[currbuf])) {
+            TLS_BUFFER_set_left(&wb[currbuf], 0);
+            TLS_BUFFER_add_offset(&wb[currbuf], i);
+            if (currbuf + 1 < s->tls_rlayer.rl_numwpipes) {
+                continue;
+            }
+            s->tls_rwstate = TLS_NOTHING;
+            return (s->tls_rlayer.rl_wpend_ret);
+        } 
+        
+        if (i <= 0) {
+#if 0
+            if (SSL_IS_DTLS(s)) {
+                /*
+                 * For DTLS, just drop it. That's kind of the whole point in
+                 * using a datagram service
+                 */
+                TLS_BUFFER_set_left(&wb[currbuf], 0);
+            }
+#endif
+            return i;
+        }
+        TLS_BUFFER_add_offset(&wb[currbuf], i);
+        TLS_BUFFER_add_left(&wb[currbuf], -i);
+    }
 }
 
 static int

@@ -1,7 +1,10 @@
-#ifndef __SSL_TEST_H__
-#define __SSL_TEST_H__
+#ifndef __TLS_TEST_H__
+#define __TLS_TEST_H__
 
-typedef struct _dv_proto_suite_t {
+#define FC_OK       0
+#define FC_ERROR    -1
+
+typedef struct fc_proto_suite_t {
     int     ps_verify_mode;
     int     (*ps_library_init)(void);
     void    (*ps_add_all_algorithms)(void);
@@ -23,6 +26,9 @@ typedef struct _dv_proto_suite_t {
     void    (*ps_ctx_free)(void *ctx);
     void    (*ps_set_verify)(void *s, int mode, char *peer_cf);
     int     (*ps_get_verify_result)(void *s);
-} dv_proto_suite_t;
+} PROTO_SUITE;
+
+extern const PROTO_SUITE fc_openssl_suite;
+extern const PROTO_SUITE fc_tls_suite;
 
 #endif

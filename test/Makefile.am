@@ -1,6 +1,6 @@
-bin_PROGRAMS = ssl_test #pem_test bn_test rsa_test
-ssl_test_SOURCES = s_test.c hk_test.c
-ssl_test_LDADD = $(srcdir)/../tls/libfc_tls.la
+bin_PROGRAMS = tls_test #pem_test bn_test rsa_test
+tls_test_SOURCES = tls_test.c tls_lib.c
+tls_test_LDADD = $(srcdir)/../tls/libfc_tls.la $(srcdir)/../crypto/libfc_crypto.la
 #pem_test_SOURCES = pem_test.c hk_test.c
 #pem_test_LDADD = $(srcdir)/../crypto/libhk_crypto.la
 #bn_test_SOURCES = bn_test.c hk_test.c

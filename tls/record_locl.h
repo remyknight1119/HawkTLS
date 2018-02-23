@@ -25,9 +25,11 @@
 
 #define TLS_BUFFER_get_left(b)              ((b)->bf_left)
 #define TLS_BUFFER_set_left(b, l)           ((b)->bf_left = (l))
+#define TLS_BUFFER_add_left(b, l)           ((b)->bf_left += (l))
 #define TLS_BUFFER_get_buf(b)               ((b)->bf_buf)
 #define TLS_BUFFER_get_offset(b)            ((b)->bf_offset)
 #define TLS_BUFFER_set_offset(b, o)         ((b)->bf_offset = (o))
+#define TLS_BUFFER_add_offset(b, o)         ((b)->bf_offset += (o))
 
 typedef struct tls_buffer_t {
     /* at least TLS_RT_MAX_PACKET_SIZE bytes, see tls_setup_buffers() */

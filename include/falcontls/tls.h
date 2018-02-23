@@ -62,8 +62,8 @@ typedef struct _fc_tls_handshake_header_t {
     fc_u8                   hh_length[3];
 } fc_tls_handshake_header_t;
 
-extern TLS_CTX *FCTLS_ctx_new(const TLS_METHOD *meth);
-extern void FCTLS_ctx_free(TLS_CTX *ctx);
+extern TLS_CTX *FCTLS_CTX_new(const TLS_METHOD *meth);
+extern void FCTLS_CTX_free(TLS_CTX *ctx);
 
 extern TLS *FCTLS_new(TLS_CTX *ctx);
 extern void FCTLS_free(TLS *s);
@@ -83,11 +83,11 @@ extern int FCTLS_get_message(TLS *s);
 
 extern int fc_undefined_function(TLS *s);
 
-extern int FCTLS_ctx_use_certificate_file(TLS_CTX *ctx,
+extern int FCTLS_CTX_use_certificate_file(TLS_CTX *ctx,
             const char *file, fc_u32 type);
-extern int FCTLS_ctx_use_private_key_file(TLS_CTX *ctx,
-            const char *file, fc_u32 type);
-extern int FCTLS_ctx_check_private_key(const TLS_CTX *ctx);
+extern int FCTLS_CTX_use_PrivateKey_file(TLS_CTX *ctx, const char *file,
+            fc_u32 type);
+extern int FCTLS_CTX_check_private_key(const TLS_CTX *ctx);
 
 
 extern void FCTLS_free(TLS *s);
