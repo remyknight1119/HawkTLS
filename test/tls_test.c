@@ -12,11 +12,13 @@
 #include <arpa/inet.h>
 
 #include <falcontls/types.h>
+#include <fc_log.h>
 
 #include "tls_test.h"
+#include "tls_lib.c"
 
 #define FC_DEF_IP_ADDRESS       "127.0.0.1"
-#define FC_DEF_PORT             "447"
+#define FC_DEF_PORT             "448"
 #define FC_SERVER_LISTEN_NUM    5
 #define FC_TEST_REQ             "Hello TLS!"
 #define FC_TEST_RESP            "TLS OK!"
@@ -65,8 +67,15 @@ static int
 fc_ssl_server_main(int pipefd, struct sockaddr_in *my_addr, char *cf,
         char *key, const PROTO_SUITE *suite, char *peer_cf)
 {
+    void                *ctx = NULL;
+    void                *ssl = NULL;
     struct epoll_event  ev = {};
     struct epoll_event  events[FC_TEST_EVENT_MAX_NUM] = {};
+    struct sockaddr_in  their_addr = {};
+    char                buf[FC_BUF_MAX_LEN] = {};
+    socklen_t           len = 0;
+    ssize_t             rlen = 0;
+    ssize_t             wlen = 0;
     int                 sockfd = 0;
     int                 efd = 0;
     int                 new_fd = 0;
@@ -74,13 +83,6 @@ fc_ssl_server_main(int pipefd, struct sockaddr_in *my_addr, char *cf,
     int                 nfds = 0;
     int                 reuse = 1;
     int                 i = 0;
-    socklen_t           len = 0;
-    ssize_t             rlen = 0;
-    ssize_t             wlen = 0;
-    struct sockaddr_in  their_addr = {};
-    char                buf[FC_BUF_MAX_LEN] = {};
-    void                *ctx = NULL;
-    void                *ssl = NULL;
         
     /* TLS 库初始化 */
     suite->ps_library_init();
@@ -91,35 +93,36 @@ fc_ssl_server_main(int pipefd, struct sockaddr_in *my_addr, char *cf,
     /* 以 TLS1.2 标准兼容方式产生一个 TLS_CTX ,即 TLS Content Text */
     ctx = suite->ps_ctx_server_new();
     if (ctx == NULL) {
-        fprintf(stderr, "CTX new failed!\n");
+        FC_LOG("CTX new failed!\n");
         exit(1);
     }
     /* 载入用户的数字证书, 此证书用来发送给客户端。 证书里包含有公钥 */
     if (suite->ps_ctx_use_certificate_file(ctx, cf) < 0) {
-        fprintf(stderr, "Load certificate failed!\n");
+        FC_LOG("Load certificate failed!\n");
         exit(1);
     }
     /* 载入用户私钥 */
     if (suite->ps_ctx_use_privateKey_file(ctx, key) < 0) {
-        fprintf(stderr, "Load private key failed!\n");
+        FC_LOG("Load private key failed!\n");
         exit(1);
     }
     /* 检查用户私钥是否正确 */
     if (suite->ps_ctx_check_private_key(ctx) < 0) {
-        fprintf(stderr, "Check private key failed!\n");
+        FC_LOG("Check private key failed!\n");
         exit(1);
     }
     suite->ps_set_verify(ctx, suite->ps_verify_mode, peer_cf);
     if (suite->ps_ctx_set_ciphers(ctx) != FC_OK) {
-        fprintf(stderr, "Set cipher failed!\n");
+        FC_LOG("Set cipher failed!\n");
         exit(1);
     }
     /* 开启一个 socket 监听 */
     if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
-        perror("socket");
+        FC_LOG("socket failed!\n");
         exit(1);
     }
 
+    FC_LOG("server!\n");
     setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
 
     if (bind(sockfd, (struct sockaddr *)my_addr, sizeof(*my_addr)) == -1) {
@@ -166,7 +169,7 @@ fc_ssl_server_main(int pipefd, struct sockaddr_in *my_addr, char *cf,
                         goto out;
                     }
                     if (suite->ps_get_verify_result(ssl) != FC_OK) {
-                        fprintf(stderr, "Client cert verify failed!\n");
+                        FC_LOG("Client cert verify failed!\n");
                         exit(1);
                     }
                     /* 开始处理每个新连接上的数据收发 */
@@ -174,21 +177,21 @@ fc_ssl_server_main(int pipefd, struct sockaddr_in *my_addr, char *cf,
                     /* 接收客户端的消息 */
                     len = suite->ps_read(ssl, buf, sizeof(buf));
                     if (len > 0 && strcmp(buf, FC_TEST_REQ) == 0) {
-                        fprintf(stderr, "Server接收消息成功:'%s',共%d 个字节的数据\n",
+                        FC_LOG("Server接收消息成功:'%s',共%d 个字节的数据\n",
                                 buf, len);
                     } else {
-                        fprintf(stderr, "Server消息接收失败!错误代码是%d,错误信息是'%s'\n",
+                        FC_LOG("Server消息接收失败!错误代码是%d,错误信息是'%s'\n",
                              errno, strerror(errno));
                         exit(1);
                     }
                     /* 发消息给客户端 */
                     len = suite->ps_write(ssl, FC_TEST_RESP, sizeof(FC_TEST_RESP));
                     if (len <= 0) {
-                        fprintf(stderr, "Server消息'%s'发送失败!错误信息是'%s'\n",
+                        FC_LOG("Server消息'%s'发送失败!错误信息是'%s'\n",
                              buf, strerror(errno));
                         exit(1);
                     } 
-                    fprintf(stderr, "Server消息'%s'发送成功,共发送了%d 个字节!\n",
+                    FC_LOG("Server消息'%s'发送成功,共发送了%d 个字节!\n",
                             FC_TEST_RESP, len);
 
                     /* 处理每个新连接上的数据收发结束 */
@@ -204,12 +207,12 @@ fc_ssl_server_main(int pipefd, struct sockaddr_in *my_addr, char *cf,
                 if (efd == pipefd) {
                     rlen = read(pipefd, buf, sizeof(buf));
                     if (rlen < 0) {
-                        fprintf(stderr, "Read form pipe failed!\n");
+                        FC_LOG("Read form pipe failed!\n");
                         goto out;
                     }
                     wlen = write(pipefd, FC_TEST_CMD_OK, sizeof(FC_TEST_CMD_OK));
                     if (wlen < sizeof(FC_TEST_CMD_OK)) {
-                        fprintf(stderr, "Write to pipe failed!\n");
+                        FC_LOG("Write to pipe failed!\n");
                         goto out;
                     }
                     if (strcmp(buf, FC_TEST_CMD_START) == 0) {
@@ -246,16 +249,16 @@ void ShowCerts(TLS * ssl)
     char *line;
     cert = TLS_get_peer_certificate(ssl);
     if (cert != NULL) {
-        fprintf(stderr, "数字证书信息:\n");
+        FC_LOG("数字证书信息:\n");
         line = X509_NAME_oneline(X509_get_subject_name(cert), 0, 0);
-        fprintf(stderr, "证书: %s\n", line);
+        FC_LOG("证书: %s\n", line);
         free(line);
         line = X509_NAME_oneline(X509_get_issuer_name(cert), 0, 0);
-        fprintf(stderr, "颁发者: %s\n", line);
+        FC_LOG("颁发者: %s\n", line);
         free(line);
         X509_free(cert);
     } else
-        fprintf(stderr, "无证书信息!\n");
+        FC_LOG("无证书信息!\n");
 }
 #endif
 
@@ -280,17 +283,17 @@ fc_ssl_client_main(struct sockaddr_in *dest, char *cf, char *key,
 
     /* 载入用户的数字证书, 此证书用来发送给客户端。 证书里包含有公钥 */
     if (suite->ps_ctx_use_certificate_file(ctx, cf) < 0) {
-        fprintf(stderr, "Load certificate %s failed!\n", cf);
+        FC_LOG("Load certificate %s failed!\n", cf);
         exit(1);
     }
     /* 载入用户私钥 */
     if (suite->ps_ctx_use_privateKey_file(ctx, key) < 0) {
-        fprintf(stderr, "Load private key %s failed!\n", key);
+        FC_LOG("Load private key %s failed!\n", key);
         exit(1);
     }
     /* 检查用户私钥是否正确 */
     if (suite->ps_ctx_check_private_key(ctx) < 0) {
-        fprintf(stderr, "Check private key failed!\n");
+        FC_LOG("Check private key failed!\n");
         exit(1);
     }
  
@@ -299,47 +302,47 @@ fc_ssl_client_main(struct sockaddr_in *dest, char *cf, char *key,
         perror("Socket");
         exit(errno);
     }
-    fprintf(stderr, "socket created\n");
-    fprintf(stderr, "address created\n");
+    FC_LOG("socket created\n");
+    FC_LOG("address created\n");
     /* 连接服务器 */
     if (connect(sockfd, (struct sockaddr *)dest, sizeof(*dest)) != 0) {
         perror("Connect ");
         exit(errno);
     }
-    fprintf(stderr, "server connected\n");
+    FC_LOG("server connected\n");
     suite->ps_set_verify(ctx, suite->ps_verify_mode, peer_cf);
     /* 基于 ctx 产生一个新的 TLS */
     ssl = suite->ps_ssl_new(ctx);
     suite->ps_set_fd(ssl, sockfd);
     /* 建立 TLS 连接 */
     if (suite->ps_connect(ssl) == FC_ERROR) {
-        fprintf(stderr, "Client connect failed!\n");
+        FC_LOG("Client connect failed!\n");
         exit(1);
     } 
     //printf("Connected with %s encryption\n", TLS_get_cipher(ssl));
     //ShowCerts(ssl);
 
     if (suite->ps_get_verify_result(ssl) != FC_OK) {
-        fprintf(stderr, "Server cert verify failed!\n");
+        FC_LOG("Server cert verify failed!\n");
         exit(1);
     }
     /* 发消息给服务器 */
     len = suite->ps_write(ssl, FC_TEST_REQ, sizeof(FC_TEST_REQ));
     if (len < 0) {
-        fprintf(stderr, "Client消息'%s'发送失败!错误代码是%d,错误信息是'%s'\n",
+        FC_LOG("Client消息'%s'发送失败!错误代码是%d,错误信息是'%s'\n",
              buffer, errno, strerror(errno));
         exit(1);
     }
-    fprintf(stderr, "Client消息'%s'发送成功,共发送了%d 个字节!\n",
+    FC_LOG("Client消息'%s'发送成功,共发送了%d 个字节!\n",
             FC_TEST_REQ, len);
 
     /* 接收服务器来的消息 */
     len = suite->ps_read(ssl, buffer, sizeof(buffer));
     if (len > 0 && strcmp(buffer, FC_TEST_RESP) == 0) {
-        fprintf(stderr, "Client接收消息成功:'%s',共%d 个字节的数据\n",
+        FC_LOG("Client接收消息成功:'%s',共%d 个字节的数据\n",
                 buffer, len);
     } else {
-        fprintf(stderr, "Client消息接收失败!错误代码是%d,错误信息是'%s', len = %d\n",
+        FC_LOG("Client消息接收失败!错误代码是%d,错误信息是'%s', len = %d\n",
              errno, strerror(errno), len);
         ret = FC_ERROR;
     }
@@ -361,14 +364,15 @@ fc_ssl_client(int pipefd, struct sockaddr_in *addr, char *cf,
     ssize_t             wlen = 0;
     int                 ret = 0;
 
+    sleep(2);
     wlen = write(pipefd, FC_TEST_CMD_START, strlen(FC_TEST_CMD_START));
     if (wlen < strlen(FC_TEST_CMD_START)) {
-        fprintf(stderr, "Write to pipefd failed(errno=%s)\n", strerror(errno));
+        FC_LOG("Write to pipefd failed(errno=%s)\n", strerror(errno));
         return FC_ERROR;
     }
     rlen = read(pipefd, buf, sizeof(buf));
     if (rlen < 0 || strcmp(FC_TEST_CMD_OK, buf) != 0) {
-        fprintf(stderr, "Read from pipefd failed(errno=%s)\n", strerror(errno));
+        FC_LOG("Read from pipefd failed(errno=%s)\n", strerror(errno));
         return FC_ERROR;
     }
     ret = fc_ssl_client_main(addr, cf, key, suite, peer_cf);
@@ -379,7 +383,7 @@ fc_ssl_client(int pipefd, struct sockaddr_in *addr, char *cf,
 
     wlen = write(pipefd, FC_TEST_CMD_END, strlen(FC_TEST_CMD_END));
     if (wlen < strlen(FC_TEST_CMD_END)) {
-        fprintf(stderr, "Write to pipefd failed(errno=%s), wlen = %d\n",
+        FC_LOG("Write to pipefd failed(errno=%s), wlen = %d\n",
                 strerror(errno), (int)wlen);
         close(pipefd);
         return FC_ERROR;
@@ -388,7 +392,7 @@ fc_ssl_client(int pipefd, struct sockaddr_in *addr, char *cf,
     rlen = read(pipefd, buf, sizeof(buf));
     close(pipefd);
     if (rlen < 0 || strcmp(FC_TEST_CMD_OK, buf) != 0) {
-        fprintf(stderr, "Read from pipefd failed(errno=%s)\n", strerror(errno));
+        FC_LOG("Read from pipefd failed(errno=%s)\n", strerror(errno));
         return FC_ERROR;
     }
     return FC_OK;
@@ -408,7 +412,7 @@ fc_help(void)
 }
 
 static const char *
-fc_optstring = "HCS:p:c:k:";
+fc_optstring = "HCSp:c:k:";
 
 int
 main(int argc, char **argv)  
@@ -429,8 +433,8 @@ main(int argc, char **argv)
     char                    *client_cf = NULL;
     char                    *client_key = NULL;
 
-    while((c = getopt_long(argc, argv, 
-                    fc_optstring,  fc_long_opts, NULL)) != -1) {
+    while ((c = getopt_long(argc, argv, fc_optstring, 
+                    fc_long_opts, NULL)) != -1) {
         switch(c) {
             case 'H':
                 fc_help();
@@ -463,12 +467,12 @@ main(int argc, char **argv)
     }
 
     if (cf == NULL) {
-        fprintf(stderr, "Please input cf by -c!\n");
+        FC_LOG("Please input cf by -c!\n");
         return -FC_ERROR;
     }
 
     if (key == NULL) {
-        fprintf(stderr, "Please input key by -k!\n");
+        FC_LOG("Please input key by -k!\n");
         return -FC_ERROR;
     }
 
@@ -476,25 +480,25 @@ main(int argc, char **argv)
     addr.sin_port = htons(pport);
     addr.sin_addr.s_addr = inet_addr(ip);
     if (socketpair(AF_UNIX, SOCK_STREAM, 0, fd) < 0) {
-        fprintf(stderr, "Create socketpair failed(errn=%s)!\n",
+        FC_LOG("Create socketpair failed(errn=%s)!\n",
                 strerror(errno));
         return -FC_ERROR;
     }
 
     if ((pid = fork()) < 0) {
-        fprintf(stderr, "Fork failed!\n");
+        FC_LOG("Fork failed!\n");
         return -FC_ERROR;
     }
 
     client_cf = strstr(cf, ",");
     if (client_cf == NULL) {
-        fprintf(stderr, "Client certificate not set!\n");
+        FC_LOG("Client certificate not set!\n");
         return -FC_ERROR;
     }
     *client_cf++ = 0;
     client_key = strstr(key, ",");
     if (client_key == NULL) {
-        fprintf(stderr, "Client key not set!\n");
+        FC_LOG("Client key not set!\n");
         return -FC_ERROR;
     }
     *client_key++ = 0;

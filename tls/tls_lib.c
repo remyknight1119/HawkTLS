@@ -3,6 +3,7 @@
 #include <falcontls/crypto.h>
 #include <falcontls/x509.h>
 #include <falcontls/bio.h>
+#include <fc_log.h>
 
 #include "tls_locl.h"
 
@@ -14,6 +15,7 @@ FCTLS_CTX_new(const TLS_METHOD *meth)
 
     ctx = FALCONTLS_calloc(sizeof(*ctx));
     if (ctx == NULL) {
+        FC_LOG("Alloc ctx failed!\n");
         return NULL;
     }
 
@@ -71,6 +73,7 @@ FCTLS_new(TLS_CTX *ctx)
     s->tls_max_pipelines = ctx->sc_max_pipelines;
 
     if (!s->tls_method->md_tls_new(s)) {
+        FC_LOG("TLS new failed\n");
         goto err;
     }
 

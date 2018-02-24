@@ -9,6 +9,7 @@
 
 #define FC_DEF_SERVER_CIPHERS   "ECDHE-RSA-AES128-GCM-SHA256"
 
+static int fc_openssl_library_init(void);
 static void fc_openssl_add_all_algorighms(void);
 static void *fc_openssl_ctx_client_new(void);
 static void *fc_openssl_ctx_server_new(void);
@@ -51,7 +52,7 @@ static int fc_tls_get_verify_result(void *s);
 
 const PROTO_SUITE fc_openssl_suite = {
     .ps_verify_mode = SSL_VERIFY_PEER,
-    .ps_library_init = SSL_library_init,
+    .ps_library_init = fc_openssl_library_init,
     .ps_add_all_algorithms = fc_openssl_add_all_algorighms,
     .ps_load_error_strings = SSL_load_error_strings,
     .ps_ctx_client_new = fc_openssl_ctx_client_new,
@@ -103,7 +104,14 @@ fc_openssl_callback(int ok, X509_STORE_CTX *ctx)
     return 1;
 }
 
-/* OpenTLS */
+/* OpenSSL */
+static int
+fc_openssl_library_init(void)
+{
+    SSL_library_init();
+    return FC_OK;
+}
+
 static void
 fc_openssl_add_all_algorighms(void)
 {
