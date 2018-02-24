@@ -5,7 +5,7 @@
 #define FC_ERROR    -1
 
 typedef struct fc_proto_suite_t {
-    int     ps_verify_mode;
+    long    ps_verify_mode;
     int     (*ps_library_init)(void);
     void    (*ps_add_all_algorithms)(void);
     void    (*ps_load_error_strings)(void);

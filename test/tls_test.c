@@ -15,7 +15,6 @@
 #include <fc_log.h>
 
 #include "tls_test.h"
-#include "tls_lib.c"
 
 #define FC_DEF_IP_ADDRESS       "127.0.0.1"
 #define FC_DEF_PORT             "448"
