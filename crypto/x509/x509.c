@@ -1,6 +1,7 @@
 
 #include <falcontls/types.h>
 #include <falcontls/x509.h>
+#include <fc_log.h>
 
 #include "internal/x509.h"
 

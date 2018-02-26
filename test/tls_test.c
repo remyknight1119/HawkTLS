@@ -285,17 +285,21 @@ fc_ssl_client_main(struct sockaddr_in *dest, char *cf, char *key,
         FC_LOG("Load certificate %s failed!\n", cf);
         exit(1);
     }
+
     /* 载入用户私钥 */
     if (suite->ps_ctx_use_privateKey_file(ctx, key) < 0) {
         FC_LOG("Load private key %s failed!\n", key);
         exit(1);
     }
+
+#if 0
     /* 检查用户私钥是否正确 */
     if (suite->ps_ctx_check_private_key(ctx) < 0) {
         FC_LOG("Check private key failed!\n");
-        exit(1);
+        //exit(1);
     }
- 
+#endif
+
     /* 创建一个 socket 用于 tcp 通信 */
     if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         perror("Socket");

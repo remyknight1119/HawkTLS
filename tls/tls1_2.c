@@ -7,7 +7,7 @@
 int 
 tls1_2_new(TLS *s)
 {
-    return 0;
+    return 1;
 }
 
 void
@@ -23,25 +23,25 @@ tls1_2_free(TLS *s)
 int
 tls1_2_accept(TLS *s)
 {
-    return 0;
+    return 1;
 }
 
 int
 tls1_2_connect(TLS *s)
 {
-    return 0;
+    return 1;
 }
 
 int
 tls1_2_read(TLS *s, void *buf, int len)
 {
-    return 0;
+    return 1;
 }
 
 int
 tls1_2_peek(TLS *s, void *buf, int len)
 {
-    return 0;
+    return 1;
 }
 
 int

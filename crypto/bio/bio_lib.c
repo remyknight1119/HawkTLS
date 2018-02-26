@@ -2,6 +2,7 @@
 #include <falcontls/types.h>
 #include <falcontls/crypto.h>
 #include <falcontls/bio.h>
+#include <fc_log.h>
 
 #include <openssl/bio.h>
 
@@ -18,9 +19,11 @@ FC_BIO_new(const FC_BIO_METHOD *method)
     }
 
 #ifdef FC_OPENSSL
-    bio->b = BIO_new(method->m);
-    if (bio->b == NULL) {
-        goto err;
+    if (method->m) {
+        bio->b = BIO_new(method->m);
+        if (bio->b == NULL) {
+            goto err;
+        }
     }
 #endif
     bio->b_method = method;
