@@ -22,8 +22,14 @@ FCTLS_CTX_new(const TLS_METHOD *meth)
     ctx->sc_method = meth;
     ctx->sc_max_send_fragment = FC_TLS_RT_MAX_PLAIN_LENGTH;
     ctx->sc_split_send_fragment = FC_TLS_RT_MAX_PLAIN_LENGTH;
+    if ((ctx->sc_cert = tls_cert_new()) == NULL) {
+        goto err;
+    }
 
     return ctx;
+err:
+    FCTLS_CTX_free(ctx);
+    return NULL;
 }
 
 void 
@@ -63,7 +69,14 @@ FCTLS_new(TLS_CTX *ctx)
 
     s = FALCONTLS_calloc(sizeof(*s));
     if (s == NULL) {
+        FC_LOG("TLS calloc failed\n");
         return NULL;
+    }
+
+    s->tls_cert = tls_cert_dup(ctx->sc_cert);
+    if (s->tls_cert == NULL) {
+        FC_LOG("cert dup failed\n");
+        goto err;
     }
 
     s->tls_ctx = ctx;
@@ -78,6 +91,7 @@ FCTLS_new(TLS_CTX *ctx)
     }
 
     if (!FCTLS_clear(s)) {
+        FC_LOG("TLS clear failed\n");
         goto err;
     }
 
@@ -315,7 +329,7 @@ FCTLS_shutdown(TLS *s)
 int
 FALCONTLS_init(void)
 {
-    return 0;
+    return 1;
 }
 
 void

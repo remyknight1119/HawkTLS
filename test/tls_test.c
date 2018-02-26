@@ -302,7 +302,6 @@ fc_ssl_client_main(struct sockaddr_in *dest, char *cf, char *key,
         exit(errno);
     }
     FC_LOG("socket created\n");
-    FC_LOG("address created\n");
     /* 连接服务器 */
     if (connect(sockfd, (struct sockaddr *)dest, sizeof(*dest)) != 0) {
         perror("Connect ");
@@ -363,7 +362,6 @@ fc_ssl_client(int pipefd, struct sockaddr_in *addr, char *cf,
     ssize_t             wlen = 0;
     int                 ret = 0;
 
-    sleep(2);
     wlen = write(pipefd, FC_TEST_CMD_START, strlen(FC_TEST_CMD_START));
     if (wlen < strlen(FC_TEST_CMD_START)) {
         FC_LOG("Write to pipefd failed(errno=%s)\n", strerror(errno));

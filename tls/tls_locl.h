@@ -207,6 +207,9 @@ const TLS_METHOD *func_name(void)  \
 int tls_security_cert(TLS *s, TLS_CTX *ctx, FC_X509 *x, int vfy, int is_ee);
 int tls1_enc(TLS *s, TLS_RECORD *recs, fc_u32 n_recs, int sending);
 TLS_RWSTATE TLS_want(const TLS *s);
+CERT *tls_cert_new(void);
+CERT *tls_cert_dup(CERT *cert);
+void tls_cert_free(CERT *c);
 
 
 
