@@ -49,6 +49,7 @@ FCTLS_clear(TLS *s)
         return 0;
     }
 
+    tls_statem_clear(s);
     s->tls_method->md_tls_clear(s);
 
     return 1;
@@ -144,7 +145,7 @@ FCTLS_set_accept_state(TLS *s)
 {
     s->tls_server = 1;
     s->tls_shutdown = 0;
-    //ossl_statem_clear(s);
+    tls_statem_clear(s);
     s->tls_handshake_func = s->tls_method->md_tls_accept;
     //clear_ciphers(s);
 }
@@ -154,7 +155,7 @@ FCTLS_set_connect_state(TLS *s)
 {
     s->tls_server = 0;
     s->tls_shutdown = 0;
-    //ossl_statem_clear(s);
+    tls_statem_clear(s);
     s->tls_handshake_func = s->tls_method->md_tls_connect;
     //clear_ciphers(s);
 }

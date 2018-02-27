@@ -1,5 +1,6 @@
 
 #include <falcontls/types.h>
+#include <fc_log.h>
 
 #include "statem.h"
 #include "packet.h"
@@ -34,7 +35,24 @@ tls_statem_client_max_message_size(TLS *s)
 WRITE_TRAN
 tls_statem_client_write_transition(TLS *s)
 {
-    return WRITE_TRAN_ERROR;
+    TLS_STATEM  *st = &s->tls_statem;
+
+    switch (st->sm_hand_state) {
+        case TLS_ST_OK:
+            /* Renegotiation - fall through */
+        case TLS_ST_BEFORE:
+            st->sm_hand_state = TLS_ST_CW_CLNT_HELLO;
+            return WRITE_TRAN_CONTINUE;
+
+        case TLS_ST_CW_CLNT_HELLO:
+            /*
+             * No transition at the end of writing because we don't know what
+             * we will be sent
+             */
+            return WRITE_TRAN_FINISHED;
+        default:
+            return WRITE_TRAN_ERROR;
+    }
 }
 
 WORK_STATE
@@ -52,5 +70,5 @@ tls_statem_client_post_work(TLS *s, WORK_STATE wst)
 int
 tls_statem_client_construct_message(TLS *s)
 {
-    return 0;
+    return 1;
 }

@@ -1,8 +1,8 @@
 
 #include <falcontls/types.h>
 #include <falcontls/buffer.h>
-
 #include <internal/buffer.h>
+#include <fc_log.h>
 
 #include "statem.h"
 #include "statem_locl.h"
@@ -230,9 +230,9 @@ write_state_machine(TLS *s)
 
             case WRITE_TRAN_FINISHED:
                 return SUB_STATE_FINISHED;
-                break;
 
             default:
+                FC_LOG("Error\n");
                 return SUB_STATE_ERROR;
             }
             break;
@@ -241,6 +241,7 @@ write_state_machine(TLS *s)
             switch (st->sm_write_state_work = pre_work(s,
                         st->sm_write_state_work)) {
             default:
+                FC_LOG("Error\n");
                 return SUB_STATE_ERROR;
 
             case WORK_FINISHED_CONTINUE:
@@ -250,14 +251,17 @@ write_state_machine(TLS *s)
             case WORK_FINISHED_STOP:
                 return SUB_STATE_END_HANDSHAKE;
             }
-            if (construct_message(s) == 0)
+            if (construct_message(s) == 0) {
+                FC_LOG("Error\n");
                 return SUB_STATE_ERROR;
+            }
 
             /* Fall through */
 
         case WRITE_STATE_SEND:
             ret = statem_do_write(s);
             if (ret <= 0) {
+                FC_LOG("Error\n");
                 return SUB_STATE_ERROR;
             }
             st->sm_write_state = WRITE_STATE_POST_WORK;
@@ -268,6 +272,7 @@ write_state_machine(TLS *s)
             switch (st->sm_write_state_work = post_work(s, 
                         st->sm_write_state_work)) {
             default:
+                FC_LOG("Error\n");
                 return SUB_STATE_ERROR;
 
             case WORK_FINISHED_CONTINUE:
@@ -280,6 +285,7 @@ write_state_machine(TLS *s)
             break;
 
         default:
+            FC_LOG("Error\n");
             return SUB_STATE_ERROR;
         }
     }
@@ -291,6 +297,13 @@ TLS_get_state(const TLS *s)
     return s->tls_statem.sm_hand_state;
 }
 
+void 
+tls_statem_clear(TLS *s)
+{
+    s->tls_statem.sm_state = MSG_FLOW_UNINITED;
+    s->tls_statem.sm_hand_state = TLS_ST_BEFORE;
+    s->tls_statem.sm_in_init = 1;
+}
 
 static int
 tls_state_machine(TLS *s, int server)
@@ -309,9 +322,11 @@ tls_state_machine(TLS *s, int server)
         s->tls_server = server;
         if (s->tls_init_buf == NULL) {
             if ((buf = FC_BUF_MEM_new()) == NULL) {
+                FC_LOG("New mem buf failed!\n");
                 goto end;
             }
             if (!FC_BUF_MEM_grow(buf, FC_TLS_RT_MAX_PLAIN_LENGTH)) {
+                FC_LOG("Grow mem buf failed!\n");
                 goto end;
             }
             s->tls_init_buf = buf;
@@ -319,6 +334,7 @@ tls_state_machine(TLS *s, int server)
         }
 
         if (!tls_setup_buffers(s)) {
+            FC_LOG("setup buffers failed!\n");
             goto end;
         }
 
@@ -338,6 +354,7 @@ tls_state_machine(TLS *s, int server)
                 st->sm_state = MSG_FLOW_WRITING;
                 init_write_state_machine(s);
             } else {
+                FC_LOG("Read error!\n");
                 goto end;
             }
         } else if (st->sm_state == MSG_FLOW_WRITING) {
@@ -348,9 +365,11 @@ tls_state_machine(TLS *s, int server)
             } else if (ssret == SUB_STATE_END_HANDSHAKE) {
                 st->sm_state = MSG_FLOW_FINISHED;
             } else {
+                FC_LOG("Write error, ret = %d!\n", ssret);
                 goto end;
             }
         } else {
+            FC_LOG("State error!\n");
             goto end;
         }
     }
@@ -379,7 +398,7 @@ tls_statem_connect(TLS *s)
 int
 TLS_init(TLS *s)
 {
-    return s->tls_statem.sm_init;
+    return s->tls_statem.sm_in_init;
 }
 
 

@@ -2,6 +2,7 @@
 
 #include <falcontls/tls.h>
 #include <falcontls/bio.h>
+#include <fc_log.h>
 
 #include "statem.h"
 #include "tls_locl.h"
@@ -22,6 +23,7 @@ tls1_2_write_pending(TLS *s, int type, const fc_u8 *buf, fc_u32 len)
     fc_u32          currbuf = 0;
     int             i = 0;
 
+    FC_LOG("in\n");
     if ((s->tls_rlayer.rl_wpend_tot > (int)len)
         || ((s->tls_rlayer.rl_wpend_buf != buf)/* &&
             !(s->mode & SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER)*/)
@@ -92,6 +94,7 @@ do_tls1_2_write(TLS *s, int type, const fc_u8 *buf, fc_u32 *pipelens,
     fc_u32      totlen = 0;
     fc_u32      j = 0;
 
+    FC_LOG("in\n");
     for (j = 0; j < numpipes; j++) {
         totlen += pipelens[j];
     }
@@ -295,8 +298,8 @@ do_tls1_2_write(TLS *s, int type, const fc_u8 *buf, fc_u32 *pipelens,
         }
 
         /* now let's set up wb */
-        TLS_BUFFER_set_left(&s->tls_rlayer.rl_wbuf[j],
-                             prefix_len + TLS_RECORD_get_length(&wr[j]));
+        TLS_BUFFER_set_left(&s->tls_rlayer.rl_wbuf[j], 
+                prefix_len + TLS_RECORD_get_length(&wr[j]));
     }
 
     /*
@@ -328,6 +331,7 @@ tls1_2_write_bytes(TLS *s, int type, const void *buf, int len)
     int             i = 0;
 
     if (len < 0) {
+        FC_LOG("error\n");
         return -1;
     }
 
@@ -338,12 +342,14 @@ tls1_2_write_bytes(TLS *s, int type, const void *buf, int len)
         i = tls1_2_write_pending(s, type, &b[tot], rl->rl_wpend_tot);
         if (i <= 0) {
             rl->rl_wnum = tot;
+            FC_LOG("error\n");
             return -1;
         } 
         tot += i;               /* this might be last fragment */
     }
 
     if (tot == len) {
+        FC_LOG("return tot = %d\n", tot);
         return tot;
     }
 
@@ -353,6 +359,7 @@ tls1_2_write_bytes(TLS *s, int type, const void *buf, int len)
     max_send_fragment = s->tls_max_send_fragment;
     maxpipes = s->tls_max_pipelines;
     if (maxpipes > FC_TLS_MAX_PIPELINES) {
+        FC_LOG("error\n");
         return -1;
     }
 
@@ -362,6 +369,7 @@ tls1_2_write_bytes(TLS *s, int type, const void *buf, int len)
 
     if (max_send_fragment == 0 || split_send_fragment > max_send_fragment ||
             split_send_fragment == 0) {
+        FC_LOG("error\n");
         return -1;
     }
 

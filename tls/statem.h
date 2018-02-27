@@ -109,13 +109,14 @@ typedef struct tls_statem_t {
     READ_STATE          sm_read_state;
     WORK_STATE          sm_read_state_work;
     TLS_HANDSHAKE_STATE sm_hand_state;
-    bool                sm_init;
+    bool                sm_in_init;
     int                 sm_read_state_first_init;
     int                 sm_in_handshake;
 } TLS_STATEM;
 
 int tls_statem_accept(TLS *s);
 int tls_statem_connect(TLS *s);
+void tls_statem_clear(TLS *s);
 int TLS_init(TLS *s);
 int tls_get_message_header(TLS *s, int *mt);
 int tls_get_message_body(TLS *s, fc_ulong *len);
