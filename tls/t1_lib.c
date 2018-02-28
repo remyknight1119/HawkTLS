@@ -1,11 +1,13 @@
 
 #include <falcontls/tls.h>
 #include <falcontls/x509.h>
+#include <internal/buffer.h>
 
 #include "tls_locl.h"
 
 TLS_ENC_METHOD const TLSv1_2_enc_data = {
     .em_enc = tls1_enc,
+    .em_set_handshake_header = tls1_set_handshake_header,
     .em_enc_flags = TLS_ENC_FLAG_EXPLICIT_IV,
 };
 
@@ -20,4 +22,18 @@ tls_security_cert(TLS *s, TLS_CTX *ctx, FC_X509 *x, int vfy, int is_ee)
 {
     return 1;
 }
+
+int
+tls1_set_handshake_header(TLS *s, int htype, fc_ulong len)
+{
+    fc_u8   *p = (fc_u8 *)s->tls_init_buf->bm_data;
+
+    *(p++) = htype;
+    l2n3(len, p);
+    s->tls_init_num = (int)len + TLS_HM_HEADER_LENGTH;
+    s->tls_init_off = 0;
+
+    return 1;
+}
+
 

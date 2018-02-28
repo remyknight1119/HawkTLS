@@ -338,6 +338,8 @@ tls_state_machine(TLS *s, int server)
             goto end;
         }
 
+        s->tls_init_num = 0;
+
         if (server) {
         } else {
             s->tls_hit = 0;

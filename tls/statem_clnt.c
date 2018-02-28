@@ -64,6 +64,10 @@ tls_statem_client_pre_work(TLS *s, WORK_STATE wst)
 WORK_STATE
 tls_statem_client_post_work(TLS *s, WORK_STATE wst)
 {
+//    TLS_STATEM  *st = &s->tls_statem;
+
+    s->tls_init_num = 0;
+
     return WORK_FINISHED_CONTINUE;
 }
 
