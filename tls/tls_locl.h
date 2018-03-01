@@ -124,6 +124,9 @@ typedef struct tls_enc_method_t {
     fc_u32      em_enc_flags;
 } TLS_ENC_METHOD;
 
+#define tls_set_handshake_header(s, htype, len) \
+    s->tls_method->md_enc->em_set_handshake_header(s, htype, len)
+
 #define TLS_ENC_FLAG_EXPLICIT_IV        0x1
 
 struct fc_tls_ctx_t {

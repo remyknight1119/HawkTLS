@@ -2,6 +2,7 @@
 #include <falcontls/tls.h>
 #include <falcontls/x509.h>
 #include <internal/buffer.h>
+#include <fc_log.h>
 
 #include "tls_locl.h"
 
