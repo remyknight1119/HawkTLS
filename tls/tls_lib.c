@@ -50,6 +50,7 @@ FCTLS_clear(TLS *s)
     }
 
     tls_statem_clear(s);
+    s->tls_version = s->tls_method->md_version;
     s->tls_method->md_tls_clear(s);
 
     return 1;
