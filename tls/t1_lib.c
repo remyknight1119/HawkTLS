@@ -9,11 +9,18 @@
 TLS_ENC_METHOD const TLSv1_2_enc_data = {
     .em_enc = tls1_enc,
     .em_set_handshake_header = tls1_set_handshake_header,
+    .em_hhlen = TLS_HM_HEADER_LENGTH,
     .em_enc_flags = TLS_ENC_FLAG_EXPLICIT_IV,
 };
 
 int
 tls1_enc(TLS *s, TLS_RECORD *recs, fc_u32 n_recs, int sending)
+{
+    return 1;
+}
+
+int
+tls_fill_hello_random(TLS *s, int server, fc_u8 *result, int len)
 {
     return 1;
 }

@@ -108,7 +108,7 @@ do_tls1_2_write(TLS *s, int type, const fc_u8 *buf, fc_u32 *pipelens,
     }
 
     /* If we have an alert to send, lets send it */
-    if (s->tls_1_2.st_alert_dispatch) {
+    if (s->tls1.st_alert_dispatch) {
         i = s->tls_method->md_tls_dispatch_alert(s);
         if (i <= 0) {
             return (i);

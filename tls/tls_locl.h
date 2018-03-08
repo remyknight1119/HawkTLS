@@ -5,11 +5,13 @@
 #include <falcontls/types.h>
 #include <falcontls/evp.h>
 #include <falcontls/safestack.h>
+#include <internal/buffer.h>
 
 #include "statem.h"
 #include "record_locl.h"
 #include "tls1_2.h"
 
+#define TLS_RANDOM_SIZE                     32
 #define TLS_HM_HEADER_LENGTH                4
 
 #define TLS_RT_CHANGE_CIPHER_SPEC           20
@@ -78,9 +80,11 @@ typedef struct tls_cert_t {
     CERT_PKEY           ct_pkeys[FC_EVP_PKEY_NUM];
 } CERT;
 
-typedef struct tls1_2_state_t {
+typedef struct tls1_state_t {
+    fc_u8   st_server_random[TLS_RANDOM_SIZE];
+    fc_u8   st_client_random[TLS_RANDOM_SIZE];
     int     st_alert_dispatch;
-} TLS1_2_STATE;
+} TLS1_STATE;
 
 typedef struct tls_session_t {
     fc_u32      se_flags;
@@ -103,7 +107,7 @@ struct fc_tls_t {
     FC_EVP_CIPHER_CTX   *tls_enc_write_ctx;
     int                 (*tls_handshake_func)(TLS *);
     RECORD_LAYER        tls_rlayer;
-    TLS1_2_STATE        tls_1_2;
+    TLS1_STATE          tls1;
     fc_u32              tls_max_send_fragment;
     fc_u32              tls_split_send_fragment;
     fc_u32              tls_max_pipelines;
@@ -121,9 +125,14 @@ struct fc_tls_t {
 typedef struct tls_enc_method_t {
     int         (*em_enc)(TLS *, TLS_RECORD *, fc_u32, int);
     int         (*em_set_handshake_header)(TLS *s, int type, fc_ulong len);
+    /* Handshake header length */
+    fc_u32      em_hhlen;
     fc_u32      em_enc_flags;
 } TLS_ENC_METHOD;
 
+#define TLS_GET_HM_HEADER_LENGTH(s) s->tls_method->md_enc->em_hhlen
+#define tls_handshake_start(s) \
+    (((fc_u8 *)s->tls_init_buf->bm_data) + TLS_GET_HM_HEADER_LENGTH(s))
 #define tls_set_handshake_header(s, htype, len) \
     s->tls_method->md_enc->em_set_handshake_header(s, htype, len)
 
@@ -209,6 +218,7 @@ const TLS_METHOD *func_name(void)  \
 
 
 int tls_security_cert(TLS *s, TLS_CTX *ctx, FC_X509 *x, int vfy, int is_ee);
+int tls_fill_hello_random(TLS *s, int server, fc_u8 *result, int len);
 int tls1_enc(TLS *s, TLS_RECORD *recs, fc_u32 n_recs, int sending);
 int tls1_set_handshake_header(TLS *s, int htype, fc_ulong len);
 TLS_RWSTATE TLS_want(const TLS *s);

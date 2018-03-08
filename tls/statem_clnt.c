@@ -1,3 +1,4 @@
+#include <string.h>
 
 #include <falcontls/types.h>
 #include <fc_log.h>
@@ -73,29 +74,34 @@ tls_statem_client_post_work(TLS *s, WORK_STATE wst)
 }
 
 static int
+tls_set_client_hello_version(TLS *s)
+{
+    return 0;
+}
+
+static int
 tls_construct_client_hello(TLS *s)
 {
-#if 0
-    fc_u8       *buf = NULL;
-#endif
+    //fc_u8       *buf = NULL;
     fc_u8       *p = NULL;
     fc_u8       *d = NULL;
     fc_ulong    l = 0;
+    int         protverr;
 #if 0
     int i;
-    int protverr;
     int al = 0;
     SSL_SESSION *sess = s->session;
+#endif
 
-    buf = (fc_u8 *)s->init_buf->data;
+    //buf = (fc_u8 *)s->tls_init_buf->bm_data;
 
     /* Work out what SSL/TLS/DTLS version to use */
-    protverr = ssl_set_client_hello_version(s);
+    protverr = tls_set_client_hello_version(s);
     if (protverr != 0) {
-        SSLerr(SSL_F_TLS_CONSTRUCT_CLIENT_HELLO, protverr);
         goto err;
     }
 
+#if 0
     if ((sess == NULL) || !ssl_version_supported(s, sess->ssl_version) ||
         /*
          * In the case of EAP-FAST, we can have a pre-shared
@@ -108,53 +114,24 @@ tls_construct_client_hello(TLS *s)
     }
     /* else use the pre-loaded session */
 
-    p = s->s3->client_random;
+#endif
+    p = s->tls1.st_client_random;
 
-    i = 1;
-
-    if (i && ssl_fill_hello_random(s, 0, p, sizeof(s->s3->client_random)) <= 0)
+    if (tls_fill_hello_random(s, 0, p, sizeof(s->tls1.st_client_random)) <= 0) {
         goto err;
+    }
 
     /* Do the message type and length last */
-    d = p = ssl_handshake_start(s);
+    d = p = tls_handshake_start(s);
 
-    /*-
-     * version indicates the negotiated version: for example from
-     * an SSLv2/v3 compatible client hello). The client_version
-     * field is the maximum version we permit and it is also
-     * used in RSA encrypted premaster secrets. Some servers can
-     * choke if we initially report a higher version then
-     * renegotiate to a lower one in the premaster secret. This
-     * didn't happen with TLS 1.0 as most servers supported it
-     * but it can with TLS 1.1 or later if the server only supports
-     * 1.0.
-     *
-     * Possible scenario with previous logic:
-     *      1. Client hello indicates TLS 1.2
-     *      2. Server hello says TLS 1.0
-     *      3. RSA encrypted premaster secret uses 1.2.
-     *      4. Handshake proceeds using TLS 1.0.
-     *      5. Server sends hello request to renegotiate.
-     *      6. Client hello indicates TLS v1.0 as we now
-     *         know that is maximum server supports.
-     *      7. Server chokes on RSA encrypted premaster secret
-     *         containing version 1.0.
-     *
-     * For interoperability it should be OK to always use the
-     * maximum version we support in client hello and then rely
-     * on the checking of version to ensure the servers isn't
-     * being inconsistent: for example initially negotiating with
-     * TLS 1.0 and renegotiating with TLS 1.2. We do this by using
-     * client_version in client hello and not resetting it to
-     * the negotiated version.
-     */
-    *(p++) = s->client_version >> 8;
-    *(p++) = s->client_version & 0xff;
+    *(p++) = s->tls_version >> 8;
+    *(p++) = s->tls_version & 0xff;
 
     /* Random stuff */
-    memcpy(p, s->s3->client_random, SSL3_RANDOM_SIZE);
-    p += SSL3_RANDOM_SIZE;
+    memcpy(p, s->tls1.st_client_random, TLS_RANDOM_SIZE);
+    p += TLS_RANDOM_SIZE;
 
+#if 0
     /* Session ID */
     if (s->new_session)
         i = 0;
@@ -168,17 +145,6 @@ tls_construct_client_hello(TLS *s)
         }
         memcpy(p, s->session->session_id, i);
         p += i;
-    }
-
-    /* cookie stuff for DTLS */
-    if (SSL_IS_DTLS(s)) {
-        if (s->d1->cookie_len > sizeof(s->d1->cookie)) {
-            SSLerr(SSL_F_TLS_CONSTRUCT_CLIENT_HELLO, ERR_R_INTERNAL_ERROR);
-            goto err;
-        }
-        *(p++) = s->d1->cookie_len;
-        memcpy(p, s->d1->cookie, s->d1->cookie_len);
-        p += s->d1->cookie_len;
     }
 
     /* Ciphers supported */
