@@ -82,6 +82,8 @@ extern int FCTLS_read(TLS *s, void *buf, fc_u32 len);
 extern int FCTLS_write(TLS *s, const void *buf, fc_u32 len);
 extern int FCTLS_shutdown(TLS *s);
 extern int FCTLS_get_message(TLS *s);
+extern FC_STACK_OF(TLS_CIPHER) *FCTLS_get_ciphers(const TLS *s);
+extern FC_STACK_OF(TLS_CIPHER) *FCTLS_get_client_ciphers(const TLS *s);
 
 extern int fc_undefined_function(TLS *s);
 

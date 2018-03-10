@@ -87,42 +87,44 @@ typedef struct tls1_state_t {
 } TLS1_STATE;
 
 typedef struct tls_session_t {
-    fc_u32      se_flags;
-    fc_u32      se_session_id_length;
-    fc_u8       se_session_id[FC_TLS_MAX_SESSION_ID_LENGTH];
+    fc_u32                  se_flags;
+    fc_u32                  se_session_id_length;
+    fc_u8                   se_session_id[FC_TLS_MAX_SESSION_ID_LENGTH];
+    FC_STACK_OF(TLS_CIPHER) *se_ciphers;
 } TLS_SESSION;
 
 struct fc_tls_t {
-    TLS_STATEM          tls_statem;
-    bool                tls_server;
-    bool                tls_shutdown;
-    const TLS_METHOD    *tls_method;
-    TLS_CTX             *tls_ctx;
-    CERT                *tls_cert;
-    FC_BIO              *tls_rbio;
-    FC_BIO              *tls_wbio;
-    FC_BUF_MEM          *tls_init_buf;
-    void                *tls_init_msg;             /* pointer to handshake message body */
-    TLS_SESSION         *tls_session;
-    FC_EVP_CIPHER_CTX   *tls_enc_write_ctx;
-    int                 (*tls_handshake_func)(TLS *);
-    RECORD_LAYER        tls_rlayer;
-    TLS1_STATE          tls1;
-    fc_u32              tls_max_send_fragment;
-    fc_u32              tls_split_send_fragment;
-    fc_u32              tls_max_pipelines;
-    TLS_RWSTATE         tls_rwstate;
-    int                 tls_version;
-    int                 tls_fd;
-    int                 tls_hit;                    /* reusing a previous session */
-    int                 tls_first_packet; 
-    int                 tls_init_num; 
-    int                 tls_init_off; 
-    int                 tls_new_session;
+    TLS_STATEM                  tls_statem;
+    bool                        tls_server;
+    bool                        tls_shutdown;
+    const TLS_METHOD            *tls_method;
+    TLS_CTX                     *tls_ctx;
+    CERT                        *tls_cert;
+    FC_BIO                      *tls_rbio;
+    FC_BIO                      *tls_wbio;
+    FC_BUF_MEM                  *tls_init_buf;
+    void                        *tls_init_msg;   /* pointer to handshake message body */
+    TLS_SESSION                 *tls_session;
+    FC_EVP_CIPHER_CTX           *tls_enc_write_ctx;
+    FC_STACK_OF(TLS_CIPHER)     *tls_cipher_list;
+    int                         (*tls_handshake_func)(TLS *);
+    RECORD_LAYER                tls_rlayer;
+    TLS1_STATE                  tls1;
+    fc_u32                      tls_max_send_fragment;
+    fc_u32                      tls_split_send_fragment;
+    fc_u32                      tls_max_pipelines;
+    TLS_RWSTATE                 tls_rwstate;
+    int                         tls_version;
+    int                         tls_fd;
+    int                         tls_hit;                    /* reusing a previous session */
+    int                         tls_first_packet; 
+    int                         tls_init_num; 
+    int                         tls_init_off; 
+    int                         tls_new_session;
 
     struct {
-        fc_ulong        tm_message_size;
-        int             tm_message_type;
+        fc_ulong                tm_message_size;
+        int                     tm_message_type;
     } tls_tmp;
 };
 
@@ -143,14 +145,25 @@ typedef struct tls_enc_method_t {
 #define TLS_ENC_FLAG_EXPLICIT_IV        0x1
 
 struct fc_tls_ctx_t {
-    const TLS_METHOD    *sc_method;
-    void                *sc_ca;
-    CERT                *sc_cert;
-    fc_u32              sc_ca_len;
-    fc_u32              sc_max_send_fragment;
-    fc_u32              sc_split_send_fragment;
-    fc_u32              sc_max_pipelines;
+    const TLS_METHOD            *sc_method;
+    void                        *sc_ca;
+    CERT                        *sc_cert;
+    FC_STACK_OF(TLS_CIPHER)     *sc_cipher_list;
+    fc_u32                      sc_ca_len;
+    fc_u32                      sc_max_send_fragment;
+    fc_u32                      sc_split_send_fragment;
+    fc_u32                      sc_max_pipelines;
 }; 
+
+struct tls_cipher_t {
+    const char      *cp_name;           /* text name */
+    fc_u32          cp_valid;
+    fc_u32          cp_id;                /* id, 4 bytes, first is version */
+    fc_u32          cp_algorithm_mkey;    /* key exchange algorithm */
+    fc_u32          cp_lgorithm_auth;    /* server authentication */
+    fc_u32          cp_algorithm_enc;     /* symmetric encryption */
+    fc_u32          cp_algorithm_mac;     /* symmetric authentication */
+};
 
 struct fc_tls_method_t {
     fc_u32                  md_version;

@@ -5,6 +5,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include <falcontls/safestack.h>
+
 typedef unsigned long           fc_ulong;
 typedef uint64_t                fc_u64;
 typedef uint32_t                fc_u32;
@@ -16,6 +18,8 @@ typedef fc_ulong FC_BN_ULONG;
 typedef struct fc_tls_ctx_t TLS_CTX;
 typedef struct fc_tls_t TLS;
 typedef struct fc_tls_method_t TLS_METHOD;
+typedef struct tls_cipher_t TLS_CIPHER;
+FC_STACK_OF(TLS_CIPHER);
 
 typedef struct fc_x509_t FC_X509;
 typedef struct fc_buf_mem_t FC_BUF_MEM;

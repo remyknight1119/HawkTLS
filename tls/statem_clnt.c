@@ -79,6 +79,20 @@ tls_set_client_hello_version(TLS *s)
     return 0;
 }
 
+int
+tls_cipher_list_to_bytes(TLS *s, FC_STACK_OF(TLS_CIPHER) *sk, fc_u8 *p)
+{
+    fc_u8       *q = NULL;
+
+    if (sk == NULL) {
+        return 0;
+    }
+
+    q = p;
+
+    return (p - q);
+}
+
 static int
 tls_construct_client_hello(TLS *s)
 {
@@ -142,14 +156,12 @@ tls_construct_client_hello(TLS *s)
         p += i;
     }
 
-#if 0
     /* Ciphers supported */
-    i = ssl_cipher_list_to_bytes(s, SSL_get_ciphers(s), &(p[2]));
+    i = tls_cipher_list_to_bytes(s, FCTLS_get_ciphers(s), &(p[2]));
     if (i == 0) {
-        SSLerr(SSL_F_TLS_CONSTRUCT_CLIENT_HELLO, SSL_R_NO_CIPHERS_AVAILABLE);
         goto err;
     }
-#ifdef OPENSSL_MAX_TLS1_2_CIPHER_LENGTH
+#if 0
     /*
      * Some servers hang if client hello > 256 bytes as hack workaround
      * chop number of supported ciphers to keep it well below this if we
@@ -165,6 +177,7 @@ tls_construct_client_hello(TLS *s)
     *(p++) = 1;
     *(p++) = 0;                 /* Add the NULL method */
 
+#if 0
     /* TLS extensions */
     if (ssl_prepare_clienthello_tlsext(s) <= 0) {
         SSLerr(SSL_F_TLS_CONSTRUCT_CLIENT_HELLO, SSL_R_CLIENTHELLO_TLSEXT);

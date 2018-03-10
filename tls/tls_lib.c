@@ -110,11 +110,43 @@ FCTLS_free(TLS *s)
         return;
     }
 
+    if (s->tls_session) {
+        TLS_SESSION_free(s->tls_session);
+    }
+
     if (s->tls_method != NULL) {
         s->tls_method->md_tls_free(s);
     }
 
     FALCONTLS_free(s);
+}
+
+FC_STACK_OF(TLS_CIPHER) *
+FCTLS_get_ciphers(const TLS *s)
+{
+    if (s == NULL) {
+        return NULL;
+    }
+
+    if (s->tls_cipher_list != NULL) {
+        return (s->tls_cipher_list);
+    } 
+    
+    if ((s->tls_ctx != NULL) && (s->tls_ctx->sc_cipher_list != NULL)) {
+        return (s->tls_ctx->sc_cipher_list);
+    }
+
+    return (NULL);
+}
+
+FC_STACK_OF(TLS_CIPHER) *
+FCTLS_get_client_ciphers(const TLS *s)
+{
+    if ((s == NULL) || (s->tls_session == NULL) || !s->tls_server) {
+        return NULL;
+    }
+
+    return s->tls_session->se_ciphers;
 }
 
 int
