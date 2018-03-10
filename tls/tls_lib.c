@@ -23,6 +23,15 @@ FCTLS_CTX_new(const TLS_METHOD *meth)
     ctx->sc_max_send_fragment = FC_TLS_RT_MAX_PLAIN_LENGTH;
     ctx->sc_split_send_fragment = FC_TLS_RT_MAX_PLAIN_LENGTH;
     if ((ctx->sc_cert = tls_cert_new()) == NULL) {
+        FC_LOG("CERT new failed!\n");
+        goto err;
+    }
+
+    if (!tls_create_cipher_list(ctx->sc_method, &ctx->sc_cipher_list,
+                &ctx->sc_cipher_list_by_id, FC_TLS_DEFAULT_CIPHER_LIST,
+                ctx->sc_cert) ||
+            sk_TLS_CIPHER_num(ctx->sc_cipher_list) <= 0) {
+        FC_LOG("Create cipher list failed!\n");
         goto err;
     }
 

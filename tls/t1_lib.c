@@ -44,4 +44,9 @@ tls1_set_handshake_header(TLS *s, int htype, fc_ulong len)
     return 1;
 }
 
+int
+tls_cipher_disabled(TLS *s, const TLS_CIPHER *c, int op, int ecdhe)
+{
+    return 0;
+}
 

@@ -82,13 +82,53 @@ tls_set_client_hello_version(TLS *s)
 int
 tls_cipher_list_to_bytes(TLS *s, FC_STACK_OF(TLS_CIPHER) *sk, fc_u8 *p)
 {
-    fc_u8       *q = NULL;
+    const TLS_CIPHER    *c = NULL;
+    fc_u8               *q = NULL;
+    int                 empty_reneg_info_scsv = !s->tls_renegotiate;
+    int                 i = 0;
+    int                 j = 0;
+    /* Set disabled masks for this session */
+    //ssl_set_client_disabled(s);
 
     if (sk == NULL) {
         return 0;
     }
 
     q = p;
+
+    for (i = 0; i < sk_TLS_CIPHER_num(sk); i++) {
+        c = sk_TLS_CIPHER_value(sk, i);
+        /* Skip disabled ciphers */
+        if (tls_cipher_disabled(s, c, 0/*SSL_SECOP_CIPHER_SUPPORTED*/, 0)) {
+            continue;
+        }
+        j = s->tls_method->md_put_cipher_by_char(c, p);
+        p += j;
+    }
+    /*
+     * If p == q, no ciphers; caller indicates an error. Otherwise, add
+     * applicable SCSVs.
+     */
+    if (p != q) {
+        if (empty_reneg_info_scsv) {
+#if 0
+            static TLS_CIPHER scsv = {
+                0, NULL, SSL3_CK_SCSV, 0, 0, 0, 0, 0, 0, 0, 0, 0
+            };
+            j = s->tls_method->md_put_cipher_by_char(&scsv, p);
+            p += j;
+#endif
+        }
+#if 0
+        if (s->mode & SSL_MODE_SEND_FALLBACK_SCSV) {
+            static SSL_CIPHER scsv = {
+                0, NULL, SSL3_CK_FALLBACK_SCSV, 0, 0, 0, 0, 0, 0, 0, 0, 0
+            };
+            j = s->method->put_cipher_by_char(&scsv, p);
+            p += j;
+        }
+#endif
+    }
 
     return (p - q);
 }

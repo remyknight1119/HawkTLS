@@ -1,8 +1,9 @@
 #ifndef __FC_TLS_H__
 #define __FC_TLS_H__
 
-#include "falcontls/types.h"
-#include "falcontls/x509.h"
+#include <falcontls/types.h>
+#include <falcontls/x509.h>
+#include <falcontls/stack.h>
 
 #define FC_TLS1_0_VERSION                   0x0301
 #define FC_TLS1_2_VERSION                   0x0303
@@ -14,6 +15,8 @@
 #define FC_TLS_MAX_SESSION_ID_LENGTH        32
 
 #define FC_TLS_RANDOM_BYTES_LEN             28
+
+#define FC_TLS_DEFAULT_CIPHER_LIST          "ALL"
 
 #define FC_TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384        (0xc030)
 #define FC_TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256        (0xc02f)
@@ -40,6 +43,8 @@
 
 /* The maximum number of encrypt/decrypt pipelines we can support */
 #define FC_TLS_MAX_PIPELINES                    32
+
+FC_DEFINE_STACK_OF_CONST(TLS_CIPHER)
 
 #pragma pack (1)
 

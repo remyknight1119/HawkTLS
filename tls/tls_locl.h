@@ -121,6 +121,7 @@ struct fc_tls_t {
     int                         tls_init_num; 
     int                         tls_init_off; 
     int                         tls_new_session;
+    int                         tls_renegotiate; 
 
     struct {
         fc_ulong                tm_message_size;
@@ -149,6 +150,7 @@ struct fc_tls_ctx_t {
     void                        *sc_ca;
     CERT                        *sc_cert;
     FC_STACK_OF(TLS_CIPHER)     *sc_cipher_list;
+    FC_STACK_OF(TLS_CIPHER)     *sc_cipher_list_by_id;
     fc_u32                      sc_ca_len;
     fc_u32                      sc_max_send_fragment;
     fc_u32                      sc_split_send_fragment;
@@ -182,25 +184,22 @@ struct fc_tls_method_t {
     int                     (*md_tls_renegotiate_check)(TLS *s);
     int                     (*md_tls_read_bytes)(TLS *s, int type, int *recvd_type,
                                 fc_u8 *buf, int len, int peek); 
-    int                     (*md_tls_write_bytes)(TLS *s, int type, const void *buf_,
-                                int len);
+    int                     (*md_tls_write_bytes)(TLS *s, int type, 
+                                const void *buf_, int len);
     int                     (*md_tls_dispatch_alert)(TLS *s); 
-    long                    (*md_tls_ctrl)(TLS *s, int cmd, long larg, void *parg);
-#if 0
-    long (*md_tls_ctx_ctrl) (TLS_CTX *ctx, int cmd, long larg, void *parg);
-    const TLS_CIPHER *(*get_cipher_by_char) (const fc_u8 *ptr);
-    int (*put_cipher_by_char) (const TLS_CIPHER *cipher, fc_u8 *ptr);
-    int (*md_tls_pending) (const TLS *s); 
-    int (*num_ciphers) (void);
-    const TLS_CIPHER *(*get_cipher) (unsigned ncipher);
-#endif
+    long                    (*md_tls_ctrl)(TLS *s, int cmd, long larg,
+                                void *parg);
+    long                    (*md_tls_ctx_ctrl)(TLS_CTX *ctx, int cmd,
+                                long larg, void *parg);
+    const TLS_CIPHER        *(*md_get_cipher_by_char)(const fc_u8 *ptr);
+    int                     (*md_put_cipher_by_char)(const TLS_CIPHER *cipher,
+                                fc_u8 *ptr);
+    int                     (*md_tls_pending) (const TLS *s); 
+    int                     (*md_num_ciphers) (void);
+    const TLS_CIPHER        *(*md_get_cipher) (unsigned ncipher);
     long                    (*md_get_timeout)(void);
     const TLS_ENC_METHOD    *md_enc; /* Extra TLS stuff */
-#if 0
-    int (*md_tls_version) (void);
-    long (*md_tls_callback_ctrl) (TLS *s, int cb_id, void (*fp) (void));
-    long (*md_tls_ctx_callback_ctrl) (TLS_CTX *s, int cb_id, void (*fp) (void));
-#endif
+    int                     (*md_tls_version) (void);
 };
 
 extern TLS_ENC_METHOD const TLSv1_2_enc_data;
@@ -228,6 +227,8 @@ const TLS_METHOD *func_name(void)  \
                 .md_tls_write_bytes = tls1_2_write_bytes, \
                 .md_tls_dispatch_alert = tls1_2_dispatch_alert, \
                 .md_tls_ctrl = tls1_2_ctrl, \
+                .md_get_cipher_by_char = tls1_2_get_cipher_by_char, \
+                .md_put_cipher_by_char = tls1_2_put_cipher_by_char, \
                 .md_enc = enc_data, \
         }; \
         return &func_name##_data; \
@@ -245,7 +246,13 @@ void tls_cert_free(CERT *c);
 int tls_get_new_session(TLS *s, int session);
 TLS_SESSION *TLS_SESSION_new(void);
 void TLS_SESSION_free(TLS_SESSION *ss);
-
+FC_STACK_OF(TLS_CIPHER) *tls_create_cipher_list(const TLS_METHOD *meth,
+                                                FC_STACK_OF(TLS_CIPHER) **pref,
+                                                FC_STACK_OF(TLS_CIPHER)
+                                                    **sorted,
+                                                const char *rule_str,
+                                                CERT *c);
+int tls_cipher_disabled(TLS *s, const TLS_CIPHER *c, int op, int ecdhe);
 
 
 #endif
