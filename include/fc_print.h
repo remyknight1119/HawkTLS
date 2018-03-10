@@ -1,10 +1,10 @@
-#ifndef __HK_PRINT_H__
-#define __HK_PRINT_H__
+#ifndef __FC_PRINT_H__
+#define __FC_PRINT_H__
 
 #include <stdio.h>
 
 static inline void
-hk_print(unsigned char *data, int len)
+fc_print(unsigned char *data, int len)
 {
     int     i = 0;
 

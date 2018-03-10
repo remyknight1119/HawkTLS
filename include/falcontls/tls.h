@@ -10,6 +10,8 @@
 #define FC_TLS_MAX_VERSION                  FC_TLS1_3_VERSION
 
 #define FC_TLS_MSG_MAX_LEN                  1500
+#define FC_TLS_SESSION_ID_LENGTH            32
+#define FC_TLS_MAX_SESSION_ID_LENGTH        32
 
 #define FC_TLS_RANDOM_BYTES_LEN             28
 

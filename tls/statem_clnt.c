@@ -86,12 +86,12 @@ tls_construct_client_hello(TLS *s)
     fc_u8       *p = NULL;
     fc_u8       *d = NULL;
     fc_ulong    l = 0;
-    int         protverr;
+    int         protverr = 0;
+    int         i = 0;
 #if 0
-    int i;
-    int al = 0;
-    SSL_SESSION *sess = s->session;
+    int         al = 0;
 #endif
+    TLS_SESSION *sess = s->tls_session;
 
     //buf = (fc_u8 *)s->tls_init_buf->bm_data;
 
@@ -101,20 +101,16 @@ tls_construct_client_hello(TLS *s)
         goto err;
     }
 
-#if 0
-    if ((sess == NULL) || !ssl_version_supported(s, sess->ssl_version) ||
-        /*
-         * In the case of EAP-FAST, we can have a pre-shared
-         * "ticket" without a session ID.
-         */
+    if ((sess == NULL) /*|| !ssl_version_supported(s, sess->ssl_version) ||
         (!sess->session_id_length && !sess->tlsext_tick) ||
-        (sess->not_resumable)) {
-        if (!ssl_get_new_session(s, 0))
+        (sess->not_resumable)*/) {
+        if (!tls_get_new_session(s, 0)) {
+            FC_LOG("Get new session failed\n");
             goto err;
+        }
     }
     /* else use the pre-loaded session */
 
-#endif
     p = s->tls1.st_client_random;
 
     if (tls_fill_hello_random(s, 0, p, sizeof(s->tls1.st_client_random)) <= 0) {
@@ -131,22 +127,22 @@ tls_construct_client_hello(TLS *s)
     memcpy(p, s->tls1.st_client_random, TLS_RANDOM_SIZE);
     p += TLS_RANDOM_SIZE;
 
-#if 0
     /* Session ID */
-    if (s->new_session)
+    if (s->tls_new_session) {
         i = 0;
-    else
-        i = s->session->session_id_length;
+    } else {
+        i = s->tls_session->se_session_id_length;
+    }
     *(p++) = i;
     if (i != 0) {
-        if (i > (int)sizeof(s->session->session_id)) {
-            SSLerr(SSL_F_TLS_CONSTRUCT_CLIENT_HELLO, ERR_R_INTERNAL_ERROR);
+        if (i > (int)sizeof(s->tls_session->se_session_id)) {
             goto err;
         }
-        memcpy(p, s->session->session_id, i);
+        memcpy(p, s->tls_session->se_session_id, i);
         p += i;
     }
 
+#if 0
     /* Ciphers supported */
     i = ssl_cipher_list_to_bytes(s, SSL_get_ciphers(s), &(p[2]));
     if (i == 0) {

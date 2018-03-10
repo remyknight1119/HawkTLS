@@ -88,14 +88,14 @@ typedef struct tls1_state_t {
 
 typedef struct tls_session_t {
     fc_u32      se_flags;
+    fc_u32      se_session_id_length;
+    fc_u8       se_session_id[FC_TLS_MAX_SESSION_ID_LENGTH];
 } TLS_SESSION;
 
 struct fc_tls_t {
     TLS_STATEM          tls_statem;
     bool                tls_server;
     bool                tls_shutdown;
-    int                 tls_version;
-    int                 tls_fd;
     const TLS_METHOD    *tls_method;
     TLS_CTX             *tls_ctx;
     CERT                *tls_cert;
@@ -112,10 +112,14 @@ struct fc_tls_t {
     fc_u32              tls_split_send_fragment;
     fc_u32              tls_max_pipelines;
     TLS_RWSTATE         tls_rwstate;
+    int                 tls_version;
+    int                 tls_fd;
     int                 tls_hit;                    /* reusing a previous session */
     int                 tls_first_packet; 
     int                 tls_init_num; 
     int                 tls_init_off; 
+    int                 tls_new_session;
+
     struct {
         fc_ulong        tm_message_size;
         int             tm_message_type;
@@ -225,6 +229,9 @@ TLS_RWSTATE TLS_want(const TLS *s);
 CERT *tls_cert_new(void);
 CERT *tls_cert_dup(CERT *cert);
 void tls_cert_free(CERT *c);
+int tls_get_new_session(TLS *s, int session);
+TLS_SESSION *TLS_SESSION_new(void);
+void TLS_SESSION_free(TLS_SESSION *ss);
 
 
 
