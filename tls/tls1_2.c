@@ -1,8 +1,27 @@
 
 #include <falcontls/tls.h>
+#include <fc_lib.h>
 #include <fc_log.h>
 
+#include "tls1.h"
 #include "tls_locl.h"
+
+#define TLS1_2_NUM_CIPHERS  FC_ARRAY_SIZE(tls1_2_ciphers)
+
+static TLS_CIPHER tls1_2_ciphers[] = {
+    {
+        .cp_name = TLS1_TXT_ECDHE_ECDSA_WITH_AES_128_CCM,
+        .cp_id = TLS1_CK_ECDHE_ECDSA_WITH_AES_128_CCM,
+        .cp_algorithm_mkey = TLS_kECDHE,
+        .cp_lgorithm_auth = TLS_aECDSA,
+        .cp_algorithm_enc = TLS_AES128CCM,
+        .cp_algorithm_mac = TLS_AEAD,
+        .cp_alg_bits = 128,
+        .cp_strength_bits = 128,
+    },
+    {
+    },
+};
 
 int 
 tls1_2_new(TLS *s)
@@ -79,6 +98,12 @@ long
 tls1_2_ctrl(TLS *s, int cmd, long larg, void *parg)
 {
     return 0;
+}
+
+int
+tls1_2_num_ciphers(void)
+{
+    return TLS1_2_NUM_CIPHERS;
 }
 
 /*

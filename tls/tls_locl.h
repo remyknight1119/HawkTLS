@@ -159,12 +159,13 @@ struct fc_tls_ctx_t {
 
 struct tls_cipher_t {
     const char      *cp_name;           /* text name */
-    fc_u32          cp_valid;
     fc_u32          cp_id;                /* id, 4 bytes, first is version */
     fc_u32          cp_algorithm_mkey;    /* key exchange algorithm */
     fc_u32          cp_lgorithm_auth;    /* server authentication */
     fc_u32          cp_algorithm_enc;     /* symmetric encryption */
     fc_u32          cp_algorithm_mac;     /* symmetric authentication */
+    fc_u32          cp_alg_bits;          /* Number of bits for algorithm */
+    int             cp_strength_bits;     /* Number of bits really used */
 };
 
 struct fc_tls_method_t {
@@ -227,6 +228,7 @@ const TLS_METHOD *func_name(void)  \
                 .md_tls_write_bytes = tls1_2_write_bytes, \
                 .md_tls_dispatch_alert = tls1_2_dispatch_alert, \
                 .md_tls_ctrl = tls1_2_ctrl, \
+                .md_num_ciphers = tl1_2_num_ciphers, \
                 .md_get_cipher_by_char = tls1_2_get_cipher_by_char, \
                 .md_put_cipher_by_char = tls1_2_put_cipher_by_char, \
                 .md_enc = enc_data, \
