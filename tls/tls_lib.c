@@ -370,7 +370,7 @@ FCTLS_shutdown(TLS *s)
 }
 
 int
-FALCONTLS_init(void)
+FCTLS_init(void)
 {
     return 1;
 }

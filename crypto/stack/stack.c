@@ -1,9 +1,12 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <limits.h>
 
 #include <falcontls/stack.h>
 #include <falcontls/objects.h>
+#include <falcontls/crypto.h>
 
 struct stack_t {
     int                 sk_num;
@@ -39,14 +42,14 @@ FCTLS_sk_dup(const FCTLS_STACK *sk)
         return NULL;
     }
 
-    if ((ret = FCTLS_malloc(sizeof(*ret))) == NULL) {
+    if ((ret = FALCONTLS_malloc(sizeof(*ret))) == NULL) {
         return NULL;
     }
 
     /* direct structure assignment */
     *ret = *sk;
 
-    if ((ret->sk_data = FCTLS_malloc(sizeof(*ret->sk_data) *
+    if ((ret->sk_data = FALCONTLS_malloc(sizeof(*ret->sk_data) *
                     sk->sk_num_alloc)) == NULL) {
         goto err;
     }
@@ -63,13 +66,13 @@ FCTLS_sk_deep_copy(const FCTLS_STACK *sk,
                         FCTLS_sk_freefunc free_func)
 {
     FCTLS_STACK     *ret = NULL;
-    int             i = NULL;
+    int             i = 0;
 
     if (sk->sk_num < 0) {
         return NULL;
     }
 
-    if ((ret = FCTLS_malloc(sizeof(*ret))) == NULL) {
+    if ((ret = FALCONTLS_malloc(sizeof(*ret))) == NULL) {
         return NULL;
     }
 
@@ -77,9 +80,9 @@ FCTLS_sk_deep_copy(const FCTLS_STACK *sk,
     *ret = *sk;
 
     ret->sk_num_alloc = sk->sk_num > MIN_NODES ? (size_t)sk->sk_num : MIN_NODES;
-    ret->sk_data = FCTLS_zalloc(sizeof(*ret->sk_data) * ret->sk_num_alloc);
+    ret->sk_data = FALCONTLS_calloc(sizeof(*ret->sk_data) * ret->sk_num_alloc);
     if (ret->sk_data == NULL) {
-        FCTLS_free(ret);
+        FALCONTLS_free(ret);
         return NULL;
     }
 
@@ -90,7 +93,7 @@ FCTLS_sk_deep_copy(const FCTLS_STACK *sk,
         if ((ret->sk_data[i] = copy_func(sk->sk_data[i])) == NULL) {
             while (--i >= 0) {
                 if (ret->sk_data[i] != NULL) {
-                    free_func((void *)ret->dsk_ata[i]);
+                    free_func((void *)ret->sk_data[i]);
                 }
             }
             FCTLS_sk_free(ret);
@@ -111,10 +114,10 @@ FCTLS_sk_new(FCTLS_sk_compfunc c)
 {
     FCTLS_STACK     *ret = NULL;
 
-    if ((ret = FCTLS_zalloc(sizeof(*ret))) == NULL) {
+    if ((ret = FALCONTLS_calloc(sizeof(*ret))) == NULL) {
         goto err;
     }
-    ret->sk_data = FCTLS_zalloc(sizeof(*ret->sk_data) * MIN_NODES);
+    ret->sk_data = FALCONTLS_calloc(sizeof(*ret->sk_data) * MIN_NODES);
     if (ret->sk_data == NULL) {
         goto err;
     }
@@ -125,7 +128,7 @@ FCTLS_sk_new(FCTLS_sk_compfunc c)
     return (ret);
 
  err:
-    FCTLS_free(ret);
+    FALCONTLS_free(ret);
     return (NULL);
 }
 
@@ -150,7 +153,7 @@ FCTLS_sk_insert(FCTLS_STACK *st, const void *data, int loc)
             return 0;
         }
 
-        tmpdata = FCTLS_realloc((char *)st->sk_data,
+        tmpdata = FALCONTLS_realloc((char *)st->sk_data,
                                   sizeof(char *) * doub_num_alloc);
         if (tmpdata == NULL) {
             return 0;
@@ -186,19 +189,19 @@ FCTLS_sk_delete_ptr(FCTLS_STACK *st, const void *p)
     return NULL;
 }
 
-void *i
+void *
 FCTLS_sk_delete(FCTLS_STACK *st, int loc)
 {
     const char  *ret = NULL;
 
-    if (st == NULL || loc < 0 || loc >= st->sk_sk_num) {
+    if (st == NULL || loc < 0 || loc >= st->sk_num) {
         return NULL;
     }
 
-    ret = st->sk_sk_data[loc];
-    if (loc != st->sk_sk_num - 1) {
-         memmove(&st->sk_sk_data[loc], &st->sk_sk_data[loc + 1],
-                 sizeof(st->sk_sk_data[0]) * (st->sk_sk_num - loc - 1));
+    ret = st->sk_data[loc];
+    if (loc != st->sk_num - 1) {
+         memmove(&st->sk_data[loc], &st->sk_data[loc + 1],
+                 sizeof(st->sk_data[0]) * (st->sk_num - loc - 1));
     }
     st->sk_num--;
     return (void *)ret;
@@ -315,8 +318,8 @@ void FCTLS_sk_free(FCTLS_STACK *st)
     if (st == NULL) {
         return;
     }
-    FCTLS_free(st->sk_data);
-    FCTLS_free(st);
+    FALCONTLS_free(st->sk_data);
+    FALCONTLS_free(st);
 }
 
 int FCTLS_sk_num(const FCTLS_STACK *st)

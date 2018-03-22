@@ -305,7 +305,7 @@ fc_tls_library_init(void)
 {
     int     ret = 0;
 
-    ret = FALCONTLS_init();
+    ret = FCTLS_init();
     if (ret != 1) {
         FC_LOG("Init failed\n");
         return FC_ERROR;

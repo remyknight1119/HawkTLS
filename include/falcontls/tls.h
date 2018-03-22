@@ -75,7 +75,7 @@ extern void FCTLS_CTX_free(TLS_CTX *ctx);
 extern TLS *FCTLS_new(TLS_CTX *ctx);
 extern void FCTLS_free(TLS *s);
 
-extern int FALCONTLS_init(void);
+extern int FCTLS_init(void);
 extern void FalconTLS_add_all_algorighms(void);
 
 extern int FCTLS_accept(TLS *s);
