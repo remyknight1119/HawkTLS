@@ -198,7 +198,7 @@ struct tls_cipher_t {
     const char      *cp_name;           /* text name */
     fc_u32          cp_id;                /* id, 4 bytes, first is version */
     fc_u32          cp_algorithm_mkey;    /* key exchange algorithm */
-    fc_u32          cp_lgorithm_auth;    /* server authentication */
+    fc_u32          cp_algorithm_auth;    /* server authentication */
     fc_u32          cp_algorithm_enc;     /* symmetric encryption */
     fc_u32          cp_algorithm_mac;     /* symmetric authentication */
     fc_u32          cp_alg_bits;          /* Number of bits for algorithm */
