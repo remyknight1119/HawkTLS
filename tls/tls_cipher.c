@@ -1,9 +1,11 @@
+#include <string.h>
 
 #include <falcontls/tls.h>
 #include <falcontls/crypto.h>
 #include <falcontls/x509.h>
 #include <fc_log.h>
 
+#include "tls1.h"
 #include "tls_locl.h"
 
 
@@ -58,17 +60,17 @@ tls_create_cipher_list(const TLS_METHOD *method, FC_STACK_OF(TLS_CIPHER) **pref,
      * server has both certificates, and is using the DEFAULT, or a client
      * preference).
      */
-    ssl_cipher_apply_rule(0, SSL_kECDHE, SSL_aECDSA, 0, 0, 0, 0, CIPHER_ADD,
+    ssl_cipher_apply_rule(0, TLS_kECDHE, TLS_aECDSA, 0, 0, 0, 0, CIPHER_ADD,
                           -1, &head, &tail);
-    ssl_cipher_apply_rule(0, SSL_kECDHE, 0, 0, 0, 0, 0, CIPHER_ADD, -1, &head,
+    ssl_cipher_apply_rule(0, TLS_kECDHE, 0, 0, 0, 0, 0, CIPHER_ADD, -1, &head,
                           &tail);
-    ssl_cipher_apply_rule(0, SSL_kECDHE, 0, 0, 0, 0, 0, CIPHER_DEL, -1, &head,
+    ssl_cipher_apply_rule(0, TLS_kECDHE, 0, 0, 0, 0, 0, CIPHER_DEL, -1, &head,
                           &tail);
 
     /* Within each strength group, we prefer GCM over CHACHA... */
-    ssl_cipher_apply_rule(0, 0, 0, SSL_AESGCM, 0, 0, 0, CIPHER_ADD, -1,
+    ssl_cipher_apply_rule(0, 0, 0, TLS_AESGCM, 0, 0, 0, CIPHER_ADD, -1,
                           &head, &tail);
-    ssl_cipher_apply_rule(0, 0, 0, SSL_CHACHA20, 0, 0, 0, CIPHER_ADD, -1,
+    ssl_cipher_apply_rule(0, 0, 0, TLS_CHACHA20, 0, 0, 0, CIPHER_ADD, -1,
                           &head, &tail);
 
     /*
@@ -76,43 +78,24 @@ tls_create_cipher_list(const TLS_METHOD *method, FC_STACK_OF(TLS_CIPHER) **pref,
      * Note that AEADs will be bumped to take preference after sorting by
      * strength.
      */
-    ssl_cipher_apply_rule(0, 0, 0, SSL_AES ^ SSL_AESGCM, 0, 0, 0, CIPHER_ADD,
+    ssl_cipher_apply_rule(0, 0, 0, TLS_AES ^ TLS_AESGCM, 0, 0, 0, CIPHER_ADD,
                           -1, &head, &tail);
 
     /* Temporarily enable everything else for sorting */
     ssl_cipher_apply_rule(0, 0, 0, 0, 0, 0, 0, CIPHER_ADD, -1, &head, &tail);
 
-    /* Low priority for MD5 */
-    ssl_cipher_apply_rule(0, 0, 0, 0, SSL_MD5, 0, 0, CIPHER_ORD, -1, &head,
-                          &tail);
-
     /*
-     * Move anonymous ciphers to the end.  Usually, these will remain
-     * disabled. (For applications that allow them, they aren't too bad, but
-     * we prefer authenticated ciphers.)
-     */
-    ssl_cipher_apply_rule(0, 0, SSL_aNULL, 0, 0, 0, 0, CIPHER_ORD, -1, &head,
-                          &tail);
-
-    /*
-     * ssl_cipher_apply_rule(0, 0, SSL_aDH, 0, 0, 0, 0, CIPHER_ORD, -1,
+     * ssl_cipher_apply_rule(0, 0, TLS_aDH, 0, 0, 0, 0, CIPHER_ORD, -1,
      * &head, &tail);
      */
-    ssl_cipher_apply_rule(0, SSL_kRSA, 0, 0, 0, 0, 0, CIPHER_ORD, -1, &head,
+    ssl_cipher_apply_rule(0, TLS_kRSA, 0, 0, 0, 0, 0, CIPHER_ORD, -1, &head,
                           &tail);
-    ssl_cipher_apply_rule(0, SSL_kPSK, 0, 0, 0, 0, 0, CIPHER_ORD, -1, &head,
-                          &tail);
-
-    /* RC4 is sort-of broken -- move the the end */
-    ssl_cipher_apply_rule(0, 0, 0, SSL_RC4, 0, 0, 0, CIPHER_ORD, -1, &head,
-                          &tail);
-
     /*
      * Now sort by symmetric encryption strength.  The above ordering remains
      * in force within each class
      */
     if (!ssl_cipher_strength_sort(&head, &tail)) {
-        OPENSSL_free(co_list);
+        FALCONTLS_free(co_list);
         return NULL;
     }
 
@@ -136,11 +119,11 @@ tls_create_cipher_list(const TLS_METHOD *method, FC_STACK_OF(TLS_CIPHER) **pref,
      * Because we now bump ciphers to the top of the list, we proceed in
      * reverse order of preference.
      */
-    ssl_cipher_apply_rule(0, 0, 0, 0, SSL_AEAD, 0, 0, CIPHER_BUMP, -1,
+    ssl_cipher_apply_rule(0, 0, 0, 0, TLS_AEAD, 0, 0, CIPHER_BUMP, -1,
                           &head, &tail);
-    ssl_cipher_apply_rule(0, SSL_kDHE | SSL_kECDHE, 0, 0, 0, 0, 0,
+    ssl_cipher_apply_rule(0, TLS_kDHE | TLS_kECDHE, 0, 0, 0, 0, 0,
                           CIPHER_BUMP, -1, &head, &tail);
-    ssl_cipher_apply_rule(0, SSL_kDHE | SSL_kECDHE, 0, 0, SSL_AEAD, 0, 0,
+    ssl_cipher_apply_rule(0, TLS_kDHE | TLS_kECDHE, 0, 0, TLS_AEAD, 0, 0,
                           CIPHER_BUMP, -1, &head, &tail);
 
     /* Now disable everything (maintaining the ordering!) */
@@ -154,12 +137,12 @@ tls_create_cipher_list(const TLS_METHOD *method, FC_STACK_OF(TLS_CIPHER) **pref,
      * groups of cipher_aliases added together in one list (otherwise
      * we would be happy with just the cipher_aliases table).
      */
-    num_of_group_aliases = OSSL_NELEM(cipher_aliases);
+    num_of_group_aliases = OTLS_NELEM(cipher_aliases);
     num_of_alias_max = num_of_ciphers + num_of_group_aliases + 1;
-    ca_list = OPENSSL_malloc(sizeof(*ca_list) * num_of_alias_max);
+    ca_list = FALCONTLS_malloc(sizeof(*ca_list) * num_of_alias_max);
     if (ca_list == NULL) {
-        OPENSSL_free(co_list);
-        SSLerr(SSL_F_SSL_CREATE_CIPHER_LIST, ERR_R_MALLOC_FAILURE);
+        FALCONTLS_free(co_list);
+        SSLerr(TLS_F_TLS_CREATE_CIPHER_LIST, ERR_R_MALLOC_FAILURE);
         return (NULL);          /* Failure */
     }
     ssl_cipher_collect_aliases(ca_list, num_of_group_aliases,
@@ -173,7 +156,7 @@ tls_create_cipher_list(const TLS_METHOD *method, FC_STACK_OF(TLS_CIPHER) **pref,
     ok = 1;
     rule_p = rule_str;
     if (strncmp(rule_str, "DEFAULT", 7) == 0) {
-        ok = ssl_cipher_process_rulestr(SSL_DEFAULT_CIPHER_LIST,
+        ok = ssl_cipher_process_rulestr(TLS_DEFAULT_CIPHER_LIST,
                                         &head, &tail, ca_list, c);
         rule_p += 7;
         if (*rule_p == ':')
@@ -183,10 +166,10 @@ tls_create_cipher_list(const TLS_METHOD *method, FC_STACK_OF(TLS_CIPHER) **pref,
     if (ok && (strlen(rule_p) > 0))
         ok = ssl_cipher_process_rulestr(rule_p, &head, &tail, ca_list, c);
 
-    OPENSSL_free(ca_list);      /* Not needed anymore */
+    FALCONTLS_free(ca_list);      /* Not needed anymore */
 
     if (!ok) {                  /* Rule processing failure */
-        OPENSSL_free(co_list);
+        FALCONTLS_free(co_list);
         return (NULL);
     }
 
@@ -194,43 +177,40 @@ tls_create_cipher_list(const TLS_METHOD *method, FC_STACK_OF(TLS_CIPHER) **pref,
      * Allocate new "cipherstack" for the result, return with error
      * if we cannot get one.
      */
-    if ((cipherstack = sk_SSL_CIPHER_new_null()) == NULL) {
-        OPENSSL_free(co_list);
+    if ((cipherstack = sk_TLS_CIPHER_new_null()) == NULL) {
+        FALCONTLS_free(co_list);
         return (NULL);
     }
 
     /*
      * The cipher selection for the list is done. The ciphers are added
-     * to the resulting precedence to the STACK_OF(SSL_CIPHER).
+     * to the resulting precedence to the STACK_OF(TLS_CIPHER).
      */
     for (curr = head; curr != NULL; curr = curr->next) {
-        if (curr->active
-            && (!FIPS_mode() || curr->cipher->algo_strength & SSL_FIPS)) {
-            if (!sk_SSL_CIPHER_push(cipherstack, curr->cipher)) {
-                OPENSSL_free(co_list);
-                sk_SSL_CIPHER_free(cipherstack);
+        if (curr->active) {
+            if (!sk_TLS_CIPHER_push(cipherstack, curr->cipher)) {
+                FALCONTLS_free(co_list);
+                sk_TLS_CIPHER_free(cipherstack);
                 return NULL;
             }
-#ifdef CIPHER_DEBUG
             fprintf(stderr, "<%s>\n", curr->cipher->name);
-#endif
         }
     }
-    OPENSSL_free(co_list);      /* Not needed any longer */
+    FALCONTLS_free(co_list);      /* Not needed any longer */
 
-    tmp_cipher_list = sk_SSL_CIPHER_dup(cipherstack);
+    tmp_cipher_list = sk_TLS_CIPHER_dup(cipherstack);
     if (tmp_cipher_list == NULL) {
-        sk_SSL_CIPHER_free(cipherstack);
+        sk_TLS_CIPHER_free(cipherstack);
         return NULL;
     }
-    sk_SSL_CIPHER_free(*cipher_list);
+    sk_TLS_CIPHER_free(*cipher_list);
     *cipher_list = cipherstack;
     if (*cipher_list_by_id != NULL)
-        sk_SSL_CIPHER_free(*cipher_list_by_id);
+        sk_TLS_CIPHER_free(*cipher_list_by_id);
     *cipher_list_by_id = tmp_cipher_list;
-    (void)sk_SSL_CIPHER_set_cmp_func(*cipher_list_by_id, ssl_cipher_ptr_id_cmp);
+    (void)sk_TLS_CIPHER_set_cmp_func(*cipher_list_by_id, ssl_cipher_ptr_id_cmp);
 
-    sk_SSL_CIPHER_sort(*cipher_list_by_id);
+    sk_TLS_CIPHER_sort(*cipher_list_by_id);
  
     return (cipherstack);
 }

@@ -35,6 +35,43 @@
 #define TLS_HANDSHAKE_TYPE_FINISHED             20
 #define TLS_HANDSHAKE_TYPE_KEY_UPDATE           24
 
+/* Bits for algorithm_mkey (key exchange algorithm) */
+/* RSA key exchange */
+#define TLS_kRSA                0x00000001U
+/* tmp DH key no DH cert */
+#define TLS_kDHE                0x00000002U
+/* ephemeral ECDH */
+#define TLS_kECDHE              0x00000004U
+
+/* Bits for algorithm_auth (server authentication) */
+/* RSA auth */
+#define TLS_aRSA                0x00000001U
+/* ECDSA auth*/
+#define TLS_aECDSA              0x00000002U
+
+/* Bits for algorithm_enc (symmetric encryption) */
+#define TLS_AES128              0x00000001U
+#define TLS_AES256              0x00000002U
+#define TLS_AES128GCM           0x00000004U
+#define TLS_AES256GCM           0x00008008U
+#define TLS_AES128CCM           0x00000010U
+#define TLS_AES256CCM           0x00000020U
+#define TLS_AES128CCM8          0x00000040U
+#define TLS_AES256CCM8          0x00000080U
+#define TLS_CHACHA20POLY1305    0x00000100U
+
+#define TLS_AESGCM              (TLS_AES128GCM | TLS_AES256GCM)
+#define TLS_AESCCM              (TLS_AES128CCM | TLS_AES256CCM | TLS_AES128CCM8 | TLS_AES256CCM8)
+#define TLS_AES                 (TLS_AES128|TLS_AES256|TLS_AESGCM|TLS_AESCCM)
+#define TLS_CHACHA20            (TLS_CHACHA20POLY1305)
+
+/* Bits for algorithm_mac (symmetric authentication) */
+#define TLS_SHA256              0x0000001U
+#define TLS_SHA384              0x0000002U
+/* Not a real MAC, just an indication it is part of cipher */
+#define TLS_AEAD                0x0000004U
+
+
 typedef enum {
     TLS_NOTHING = 1,
     TLS_WRITING,
@@ -205,7 +242,7 @@ struct fc_tls_method_t {
 
 extern TLS_ENC_METHOD const TLSv1_2_enc_data;
 
-# define IMPLEMENT_tls_meth_func(version, flags, mask, func_name, s_accept, \
+#define IMPLEMENT_tls_meth_func(version, flags, mask, func_name, s_accept, \
                                  s_connect, enc_data) \
 const TLS_METHOD *func_name(void)  \
         { \
@@ -228,7 +265,7 @@ const TLS_METHOD *func_name(void)  \
                 .md_tls_write_bytes = tls1_2_write_bytes, \
                 .md_tls_dispatch_alert = tls1_2_dispatch_alert, \
                 .md_tls_ctrl = tls1_2_ctrl, \
-                .md_num_ciphers = tl1_2_num_ciphers, \
+                .md_num_ciphers = tls1_2_num_ciphers, \
                 .md_get_cipher_by_char = tls1_2_get_cipher_by_char, \
                 .md_put_cipher_by_char = tls1_2_put_cipher_by_char, \
                 .md_enc = enc_data, \

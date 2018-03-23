@@ -324,6 +324,12 @@ tls1_2_num_ciphers(void)
     return TLS1_2_NUM_CIPHERS;
 }
 
+const TLS_CIPHER *
+OBJ_bsearch_ssl_cipher_id(TLS_CIPHER *c, TLS_CIPHER *tls_cipher, int num)
+{
+    return NULL;
+}
+
 /*
  * This function needs to check if the ciphers required are actually
  * available
@@ -337,7 +343,7 @@ tls1_2_get_cipher_by_char(const fc_u8 *p)
 
     id = 0x03000000 | ((fc_u32)p[0] << 8L) | (fc_u32)p[1];
     c.cp_id = id;
-//    cp = OBJ_bsearch_ssl_cipher_id(&c, ssl3_ciphers, SSL3_NUM_CIPHERS);
+    cp = OBJ_bsearch_ssl_cipher_id(&c, tls1_2_ciphers, TLS1_2_NUM_CIPHERS);
     return cp;
 }
 
