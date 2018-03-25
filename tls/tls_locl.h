@@ -266,6 +266,7 @@ const TLS_METHOD *func_name(void)  \
                 .md_tls_dispatch_alert = tls1_2_dispatch_alert, \
                 .md_tls_ctrl = tls1_2_ctrl, \
                 .md_num_ciphers = tls1_2_num_ciphers, \
+                .md_get_cipher = tls1_2_get_cipher, \
                 .md_get_cipher_by_char = tls1_2_get_cipher_by_char, \
                 .md_put_cipher_by_char = tls1_2_put_cipher_by_char, \
                 .md_enc = enc_data, \

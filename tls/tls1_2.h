@@ -19,6 +19,7 @@ int tls1_2_renegotiate_check(TLS *s);
 int tls1_2_dispatch_alert(TLS *s);
 long tls1_2_ctrl(TLS *s, int cmd, long larg, void *parg);
 int tls1_2_num_ciphers(void);
+const TLS_CIPHER *tls1_2_get_cipher(fc_u32 u);
 const TLS_CIPHER *tls1_2_get_cipher_by_char(const fc_u8 *p);
 int tls1_2_put_cipher_by_char(const TLS_CIPHER *c, fc_u8 *p);
 

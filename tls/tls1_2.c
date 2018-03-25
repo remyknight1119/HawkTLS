@@ -325,6 +325,16 @@ tls1_2_num_ciphers(void)
 }
 
 const TLS_CIPHER *
+tls1_2_get_cipher(fc_u32 u)
+{
+    if (u >= TLS1_2_NUM_CIPHERS) {
+        return NULL;
+    }
+
+    return (&(tls1_2_ciphers[TLS1_2_NUM_CIPHERS - 1 - u]));
+}
+
+const TLS_CIPHER *
 OBJ_bsearch_ssl_cipher_id(TLS_CIPHER *c, TLS_CIPHER *tls_cipher, int num)
 {
     return NULL;
