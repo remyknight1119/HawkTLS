@@ -129,6 +129,20 @@ ll_append_head(CIPHER_ORDER **head, CIPHER_ORDER *curr,
     *head = curr;
 }
 
+static int 
+tls_cipher_strength_sort(CIPHER_ORDER **head_p, CIPHER_ORDER **tail_p)
+{
+    return 1;
+}
+
+static int
+tls_cipher_process_rulestr(const char *rule_str, CIPHER_ORDER **head_p,
+                                      CIPHER_ORDER **tail_p,
+                                      const TLS_CIPHER **ca_list, CERT *c)
+{
+    return 1;
+}
+
 static void
 tls_cipher_apply_rule(fc_u32 cipher_id, fc_u32 alg_mkey, fc_u32 alg_auth,
                         fc_u32 alg_enc, fc_u32 alg_mac, int min_tls,
@@ -281,8 +295,6 @@ tls_create_cipher_list(const TLS_METHOD *method, FC_STACK_OF(TLS_CIPHER)
     CIPHER_ORDER                *curr = NULL;
     int                         ok;
     int                         num_of_ciphers;
-    int                         num_of_alias_max;
-    int                         num_of_group_aliases;
 
     if (rule_str == NULL || cipher_list == NULL || cipher_list_by_id == NULL) {
         return NULL;
@@ -355,7 +367,7 @@ tls_create_cipher_list(const TLS_METHOD *method, FC_STACK_OF(TLS_CIPHER)
      * Partially overrule strength sort to prefer TLS 1.2 ciphers/PRFs.
      * TODO(openssl-team): is there an easier way to accomplish all this?
      */
-    tls_cipher_apply_rule(0, 0, 0, 0, 0, TLS1_2_VERSION, 0, CIPHER_BUMP, -1,
+    tls_cipher_apply_rule(0, 0, 0, 0, 0, FC_TLS1_2_VERSION, 0, CIPHER_BUMP, -1,
                           &head, &tail);
 
     /*
@@ -382,38 +394,23 @@ tls_create_cipher_list(const TLS_METHOD *method, FC_STACK_OF(TLS_CIPHER)
     tls_cipher_apply_rule(0, 0, 0, 0, 0, 0, 0, CIPHER_DEL, -1, &head, &tail);
 
     /*
-     * We also need cipher aliases for selecting based on the rule_str.
-     * There might be two types of entries in the rule_str: 1) names
-     * of ciphers themselves 2) aliases for groups of ciphers.
-     * For 1) we need the available ciphers and for 2) the cipher
-     * groups of cipher_aliases added together in one list (otherwise
-     * we would be happy with just the cipher_aliases table).
-     */
-    num_of_group_aliases = OTLS_NELEM(cipher_aliases);
-    num_of_alias_max = num_of_ciphers + num_of_group_aliases + 1;
-    ca_list = FALCONTLS_malloc(sizeof(*ca_list) * num_of_alias_max);
-    if (ca_list == NULL) {
-        FALCONTLS_free(co_list);
-        return (NULL);          /* Failure */
-    }
-    tls_cipher_collect_aliases(ca_list, num_of_group_aliases, head);
-
-    /*
      * If the rule_string begins with DEFAULT, apply the default rule
      * before using the (possibly available) additional rules.
      */
     ok = 1;
     rule_p = rule_str;
     if (strncmp(rule_str, "DEFAULT", 7) == 0) {
-        ok = tls_cipher_process_rulestr(TLS_DEFAULT_CIPHER_LIST,
+        ok = tls_cipher_process_rulestr(FC_TLS_DEFAULT_CIPHER_LIST,
                                         &head, &tail, ca_list, c);
         rule_p += 7;
-        if (*rule_p == ':')
+        if (*rule_p == ':') {
             rule_p++;
+        }
     }
 
-    if (ok && (strlen(rule_p) > 0))
+    if (ok && (strlen(rule_p) > 0)) {
         ok = tls_cipher_process_rulestr(rule_p, &head, &tail, ca_list, c);
+    }
 
     FALCONTLS_free(ca_list);      /* Not needed anymore */
 
@@ -442,7 +439,7 @@ tls_create_cipher_list(const TLS_METHOD *method, FC_STACK_OF(TLS_CIPHER)
                 sk_TLS_CIPHER_free(cipherstack);
                 return NULL;
             }
-            fprintf(stderr, "<%s>\n", curr->cipher->name);
+            fprintf(stderr, "<%s>\n", curr->cipher->cp_name);
         }
     }
     FALCONTLS_free(co_list);      /* Not needed any longer */
@@ -454,8 +451,9 @@ tls_create_cipher_list(const TLS_METHOD *method, FC_STACK_OF(TLS_CIPHER)
     }
     sk_TLS_CIPHER_free(*cipher_list);
     *cipher_list = cipherstack;
-    if (*cipher_list_by_id != NULL)
+    if (*cipher_list_by_id != NULL) {
         sk_TLS_CIPHER_free(*cipher_list_by_id);
+    }
     *cipher_list_by_id = tmp_cipher_list;
     (void)sk_TLS_CIPHER_set_cmp_func(*cipher_list_by_id, tls_cipher_ptr_id_cmp);
 
@@ -463,3 +461,4 @@ tls_create_cipher_list(const TLS_METHOD *method, FC_STACK_OF(TLS_CIPHER)
  
     return (cipherstack);
 }
+

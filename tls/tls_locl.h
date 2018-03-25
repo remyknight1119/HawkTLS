@@ -292,6 +292,8 @@ FC_STACK_OF(TLS_CIPHER) *tls_create_cipher_list(const TLS_METHOD *meth,
                                                 const char *rule_str,
                                                 CERT *c);
 int tls_cipher_disabled(TLS *s, const TLS_CIPHER *c, int op, int ecdhe);
+int tls_cipher_ptr_id_cmp(const TLS_CIPHER *const *ap, const TLS_CIPHER *
+                            const *bp);
 
 
 #endif

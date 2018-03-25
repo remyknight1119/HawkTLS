@@ -44,6 +44,8 @@
 /* The maximum number of encrypt/decrypt pipelines we can support */
 #define FC_TLS_MAX_PIPELINES                    32
 
+#define FC_TLS_DEFAULT_CIPHER_LIST              "ALL"
+
 FC_DEFINE_STACK_OF_CONST(TLS_CIPHER)
 
 #pragma pack (1)

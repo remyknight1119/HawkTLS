@@ -48,6 +48,8 @@ FCTLS_CTX_free(TLS_CTX *ctx)
         return;
     }
 
+    sk_TLS_CIPHER_free(ctx->sc_cipher_list);
+    sk_TLS_CIPHER_free(ctx->sc_cipher_list_by_id);
     FALCONTLS_free(ctx);
 }
 
@@ -156,6 +158,18 @@ FCTLS_get_client_ciphers(const TLS *s)
     }
 
     return s->tls_session->se_ciphers;
+}
+
+int
+tls_cipher_ptr_id_cmp(const TLS_CIPHER *const *ap, const TLS_CIPHER *const *bp)
+{
+    if ((*ap)->cp_id > (*bp)->cp_id) {
+        return 1;
+    }
+    if ((*ap)->cp_id < (*bp)->cp_id) {
+        return -1;
+    }
+    return 0;
 }
 
 int
