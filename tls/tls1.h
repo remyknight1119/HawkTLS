@@ -68,4 +68,23 @@
 #define TLS1_TXT_ECDHE_ECDSA_WITH_CHACHA20_POLY1305       "ECDHE-ECDSA-CHACHA20-POLY1305"
 #define TLS1_TXT_DHE_RSA_WITH_CHACHA20_POLY1305           "DHE-RSA-CHACHA20-POLY1305"
 
+#define TLS1_MT_HELLO_REQUEST                   0
+#define TLS1_MT_CLIENT_HELLO                    1
+#define TLS1_MT_SERVER_HELLO                    2
+#define TLS1_MT_NEWSESSION_TICKET               4
+#define TLS1_MT_CERTIFICATE                     11
+#define TLS1_MT_SERVER_KEY_EXCHANGE             12
+#define TLS1_MT_CERTIFICATE_REQUEST             13
+#define TLS1_MT_SERVER_DONE                     14
+#define TLS1_MT_CERTIFICATE_VERIFY              15
+#define TLS1_MT_CLIENT_KEY_EXCHANGE             16
+#define TLS1_MT_FINISHED                        20
+#define TLS1_MT_CERTIFICATE_STATUS              22
+#define TLS1_MT_NEXT_PROTO                      67
+
+/* Dummy message type for handling CCS like a normal handshake message */
+#define TLS1_MT_CHANGE_CIPHER_SPEC              0x0101
+#define TLS1_MT_CCS                             1
+
+
 #endif

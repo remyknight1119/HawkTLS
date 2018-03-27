@@ -23,7 +23,6 @@ tls1_2_write_pending(TLS *s, int type, const fc_u8 *buf, fc_u32 len)
     fc_u32          currbuf = 0;
     int             i = 0;
 
-    FC_LOG("in\n");
     if ((s->tls_rlayer.rl_wpend_tot > (int)len)
         || ((s->tls_rlayer.rl_wpend_buf != buf)/* &&
             !(s->mode & SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER)*/)

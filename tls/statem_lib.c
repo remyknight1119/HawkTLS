@@ -1,3 +1,4 @@
+#include <limits.h>
 
 #include <falcontls/types.h>
 #include <falcontls/buffer.h>
@@ -8,6 +9,7 @@
 #include "record_locl.h"
 #include "tls_locl.h"
 #include "alert.h"
+#include "tls1.h"
 
 /*
  * send s->init_buf in records of type 'type' (TLS_RT_HANDSHAKE or
@@ -50,22 +52,24 @@ tls_do_write(TLS *s, int type)
 int
 tls_get_message_header(TLS *s, int *mt)
 {
-#if 0
     /* s->init_num < TLS_HM_HEADER_LENGTH */
-    int skip_message, i, recvd_type, al;
-    fc_u8 *p;
-    fc_ulong l;
+    fc_u8       *p = NULL;
+    fc_ulong    l = 0;
+    int         skip_message = 0;
+    int         recvd_type = 0;
+    int         al = 0;
+    int         i = 0;
 
-    p = (fc_u8 *)s->init_buf->data;
+    p = (fc_u8 *)s->tls_init_buf->bm_data;
 
     do {
-        while (s->init_num < TLS_HM_HEADER_LENGTH) {
+        while (s->tls_init_num < TLS_HM_HEADER_LENGTH) {
             i = s->tls_method->md_tls_read_bytes(s, TLS_RT_HANDSHAKE, &recvd_type,
-                                          &p[s->init_num],
-                                          TLS_HM_HEADER_LENGTH - s->init_num,
+                                          &p[s->tls_init_num],
+                                          TLS_HM_HEADER_LENGTH - s->tls_init_num,
                                           0);
             if (i <= 0) {
-                s->rwstate = TLS_READING;
+                s->tls_rwstate = TLS_READING;
                 return 0;
             }
             if (recvd_type == TLS_RT_CHANGE_CIPHER_SPEC) {
@@ -73,14 +77,14 @@ tls_get_message_header(TLS *s, int *mt)
                  * A ChangeCipherSpec must be a single byte and may not occur
                  * in the middle of a handshake message.
                  */
-                if (s->init_num != 0 || i != 1 || p[0] != TLS_MT_CCS) {
+                if (s->tls_init_num != 0 || i != 1 || p[0] != TLS1_MT_CCS) {
                     al = TLS_AD_UNEXPECTED_MESSAGE;
                     goto f_err;
                 }
-                s->s3->tmp.message_type = *mt = TLS_MT_CHANGE_CIPHER_SPEC;
-                s->init_num = i - 1;
-                s->init_msg = s->init_buf->data;
-                s->s3->tmp.message_size = i;
+                s->tls_tmp.tm_message_type = *mt = TLS1_MT_CHANGE_CIPHER_SPEC;
+                s->tls_init_num = i - 1;
+                s->tls_init_msg = s->tls_init_buf->bm_data;
+                s->tls_tmp.tm_message_size = i;
                 return 1;
             }
 
@@ -88,12 +92,12 @@ tls_get_message_header(TLS *s, int *mt)
                 al = TLS_AD_UNEXPECTED_MESSAGE;
                 goto f_err;
             }
-            s->init_num += i;
+            s->tls_init_num += i;
         }
 
         skip_message = 0;
-        if (!s->server)
-            if (p[0] == TLS_MT_HELLO_REQUEST)
+        if (!s->tls_server) {
+            if (p[0] == TLS1_MT_HELLO_REQUEST) {
                 /*
                  * The server may always send 'Hello Request' messages --
                  * we are doing a handshake anyway now, so ignore them if
@@ -101,29 +105,30 @@ tls_get_message_header(TLS *s, int *mt)
                  * MAC.
                  */
                 if (p[1] == 0 && p[2] == 0 && p[3] == 0) {
-                    s->init_num = 0;
+                    s->tls_init_num = 0;
                     skip_message = 1;
                 }
+            }
+        }
     } while (skip_message);
     /* s->init_num == TLS_HM_HEADER_LENGTH */
 
     *mt = *p;
-    s->s3->tmp.message_type = *(p++);
+    s->tls_tmp.tm_message_type = *(p++);
     n2l3(p, l);
     /* BUF_MEM_grow takes an 'int' parameter */
     if (l > (INT_MAX - TLS_HM_HEADER_LENGTH)) {
         al = TLS_AD_ILLEGAL_PARAMETER;
         goto f_err;
     }
-    s->s3->tmp.message_size = l;
+    s->tls_tmp.tm_message_size = l;
 
-    s->init_msg = s->init_buf->data + TLS_HM_HEADER_LENGTH;
-    s->init_num = 0;
+    s->tls_init_msg = s->tls_init_buf->bm_data + TLS_HM_HEADER_LENGTH;
+    s->tls_init_num = 0;
 
-#endif
     return 1;
-// f_err:
-//    tls_send_alert(s, TLS_AL_FATAL, al);
+f_err:
+    tls_send_alert(s, TLS_AL_FATAL, al);
     return 0;
 }
 
