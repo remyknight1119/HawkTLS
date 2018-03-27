@@ -328,8 +328,8 @@ tls_create_cipher_list(const TLS_METHOD *method, FC_STACK_OF(TLS_CIPHER)
                           -1, &head, &tail);
     tls_cipher_apply_rule(0, TLS_kECDHE, 0, 0, 0, 0, 0, CIPHER_ADD, -1, &head,
                           &tail);
-    tls_cipher_apply_rule(0, TLS_kECDHE, 0, 0, 0, 0, 0, CIPHER_DEL, -1, &head,
-                          &tail);
+    //tls_cipher_apply_rule(0, TLS_kECDHE, 0, 0, 0, 0, 0, CIPHER_DEL, -1, &head,
+    //                      &tail);
 
     /* Within each strength group, we prefer GCM over CHACHA... */
     tls_cipher_apply_rule(0, 0, 0, TLS_AESGCM, 0, 0, 0, CIPHER_ADD, -1,
@@ -360,6 +360,7 @@ tls_create_cipher_list(const TLS_METHOD *method, FC_STACK_OF(TLS_CIPHER)
      */
     if (!tls_cipher_strength_sort(&head, &tail)) {
         FALCONTLS_free(co_list);
+        FC_LOG("strength_sort failed\n");
         return NULL;
     }
 
@@ -391,7 +392,7 @@ tls_create_cipher_list(const TLS_METHOD *method, FC_STACK_OF(TLS_CIPHER)
                           CIPHER_BUMP, -1, &head, &tail);
 
     /* Now disable everything (maintaining the ordering!) */
-    tls_cipher_apply_rule(0, 0, 0, 0, 0, 0, 0, CIPHER_DEL, -1, &head, &tail);
+    //tls_cipher_apply_rule(0, 0, 0, 0, 0, 0, 0, CIPHER_DEL, -1, &head, &tail);
 
     /*
      * If the rule_string begins with DEFAULT, apply the default rule
@@ -416,6 +417,7 @@ tls_create_cipher_list(const TLS_METHOD *method, FC_STACK_OF(TLS_CIPHER)
 
     if (!ok) {                  /* Rule processing failure */
         FALCONTLS_free(co_list);
+        FC_LOG("Not ok!\n");
         return (NULL);
     }
 
@@ -425,6 +427,7 @@ tls_create_cipher_list(const TLS_METHOD *method, FC_STACK_OF(TLS_CIPHER)
      */
     if ((cipherstack = sk_TLS_CIPHER_new_null()) == NULL) {
         FALCONTLS_free(co_list);
+        FC_LOG("New TLS_CIPHER failed!\n");
         return (NULL);
     }
 
@@ -437,6 +440,7 @@ tls_create_cipher_list(const TLS_METHOD *method, FC_STACK_OF(TLS_CIPHER)
             if (!sk_TLS_CIPHER_push(cipherstack, curr->cipher)) {
                 FALCONTLS_free(co_list);
                 sk_TLS_CIPHER_free(cipherstack);
+                FC_LOG("push CIPHER %s failed!\n", curr->cipher->cp_name);
                 return NULL;
             }
             fprintf(stderr, "<%s>\n", curr->cipher->cp_name);
@@ -447,6 +451,7 @@ tls_create_cipher_list(const TLS_METHOD *method, FC_STACK_OF(TLS_CIPHER)
     tmp_cipher_list = sk_TLS_CIPHER_dup(cipherstack);
     if (tmp_cipher_list == NULL) {
         sk_TLS_CIPHER_free(cipherstack);
+        FC_LOG("sk_TLS_CIPHER_dup failed!\n");
         return NULL;
     }
     sk_TLS_CIPHER_free(*cipher_list);

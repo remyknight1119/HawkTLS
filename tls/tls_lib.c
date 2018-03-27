@@ -12,6 +12,7 @@ TLS_CTX *
 FCTLS_CTX_new(const TLS_METHOD *meth)
 {
     TLS_CTX    *ctx = NULL;
+    int        num = 0;
 
     ctx = FALCONTLS_calloc(sizeof(*ctx));
     if (ctx == NULL) {
@@ -30,8 +31,8 @@ FCTLS_CTX_new(const TLS_METHOD *meth)
     if (!tls_create_cipher_list(ctx->sc_method, &ctx->sc_cipher_list,
                 &ctx->sc_cipher_list_by_id, FC_TLS_DEFAULT_CIPHER_LIST,
                 ctx->sc_cert) ||
-            sk_TLS_CIPHER_num(ctx->sc_cipher_list) <= 0) {
-        FC_LOG("Create cipher list failed!\n");
+            (num = sk_TLS_CIPHER_num(ctx->sc_cipher_list)) <= 0) {
+        FC_LOG("Create cipher list failed(num = %d)!\n", num);
         goto err;
     }
 
