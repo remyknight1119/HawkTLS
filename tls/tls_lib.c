@@ -184,7 +184,7 @@ FCTLS_do_handshake(TLS *s)
 
     s->tls_method->md_tls_renegotiate_check(s);
 
-    if (TLS_init(s)) {
+    if (TLS_in_init(s)) {
         ret = s->tls_handshake_func(s);
     }
 

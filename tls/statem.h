@@ -117,7 +117,8 @@ typedef struct tls_statem_t {
 int tls_statem_accept(TLS *s);
 int tls_statem_connect(TLS *s);
 void tls_statem_clear(TLS *s);
-int TLS_init(TLS *s);
+int TLS_in_init(TLS *s);
+int tls_statem_get_in_handshake(TLS *s);
 int tls_get_message_header(TLS *s, int *mt);
 int tls_get_message_body(TLS *s, fc_ulong *len);
 int tls_do_write(TLS *s, int type);

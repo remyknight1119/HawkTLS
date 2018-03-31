@@ -398,9 +398,14 @@ tls_statem_connect(TLS *s)
 }
 
 int
-TLS_init(TLS *s)
+TLS_in_init(TLS *s)
 {
     return s->tls_statem.sm_in_init;
 }
 
+int
+tls_statem_get_in_handshake(TLS *s)
+{
+    return s->tls_statem.sm_in_handshake; 
+}
 

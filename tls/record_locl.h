@@ -30,6 +30,7 @@
 #define TLS_BUFFER_get_offset(b)            ((b)->bf_offset)
 #define TLS_BUFFER_set_offset(b, o)         ((b)->bf_offset = (o))
 #define TLS_BUFFER_add_offset(b, o)         ((b)->bf_offset += (o))
+#define TLS_BUFFER_is_initialised(b)        ((b)->bf_buf != NULL)
 
 typedef struct tls_buffer_t {
     /* at least TLS_RT_MAX_PACKET_SIZE bytes, see tls_setup_buffers() */
@@ -92,10 +93,16 @@ typedef struct record_layer_t {
     const fc_u8     *rl_wpend_buf;
     TLS_BUFFER      rl_rbuf;
     TLS_BUFFER      rl_wbuf[FC_TLS_MAX_PIPELINES];
+    /* each decoded record goes in here */
     TLS_RECORD      rl_rrec[FC_TLS_MAX_PIPELINES];
+    fc_u32          rl_numrpipes;
     fc_u32          rl_numwpipes;
     /* number of bytes sent so far */
     fc_u32          rl_wnum;
+    fc_u8           rl_alert_fragment[2];
+    fc_u32          rl_alert_fragment_len;
+    fc_u8           rl_handshake_fragment[4];
+    fc_u32          rl_handshake_fragment_len;
     /* number bytes written */
     int             rl_wpend_tot;
     int             rl_wpend_type;
@@ -126,7 +133,9 @@ int tls_setup_buffers(TLS *s);
 int tls1_2_read_bytes(TLS *s, int type, int *recvd_type,
         fc_u8 *buf, int len, int peek);
 int tls1_2_write_bytes(TLS *s, int type, const void *buf, int len);
+int tls_setup_read_buffer(TLS *s);
 int tls_setup_write_buffer(TLS *s, fc_u32 numwpipes, size_t len);
 int RECORD_LAYER_write_pending(const RECORD_LAYER *rl);
+int tls_get_record(TLS *s);
 
 #endif
