@@ -101,8 +101,11 @@ typedef struct record_layer_t {
     fc_u32          rl_wnum;
     fc_u8           rl_alert_fragment[2];
     fc_u32          rl_alert_fragment_len;
+    /* Count of the number of consecutive warning alerts received */
+    fc_u32          rl_alert_count;
     fc_u8           rl_handshake_fragment[4];
     fc_u32          rl_handshake_fragment_len;
+    int             rl_rstate;
     /* number bytes written */
     int             rl_wpend_tot;
     int             rl_wpend_type;
@@ -135,6 +138,8 @@ int tls1_2_read_bytes(TLS *s, int type, int *recvd_type,
 int tls1_2_write_bytes(TLS *s, int type, const void *buf, int len);
 int tls_setup_read_buffer(TLS *s);
 int tls_setup_write_buffer(TLS *s, fc_u32 numwpipes, size_t len);
+int tls_release_write_buffer(TLS *s);
+int tls_release_read_buffer(TLS *s);
 int RECORD_LAYER_write_pending(const RECORD_LAYER *rl);
 int tls_get_record(TLS *s);
 

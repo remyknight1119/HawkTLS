@@ -83,3 +83,32 @@ tls_setup_buffers(TLS *s)
 
     return 1;
 }
+
+int
+tls_release_write_buffer(TLS *s)
+{
+    TLS_BUFFER      *wb = NULL;
+    fc_u32          pipes = 0;
+
+    pipes = s->tls_rlayer.rl_numwpipes;
+    while (pipes > 0) {
+        wb = &RECORD_LAYER_get_wbuf(&s->tls_rlayer)[pipes - 1];
+
+        FALCONTLS_free(wb->bf_buf);
+        wb->bf_buf = NULL;
+        pipes--;
+    }
+    s->tls_rlayer.rl_numwpipes = 0;
+    return 1;
+}
+
+int
+tls_release_read_buffer(TLS *s)
+{
+    TLS_BUFFER      *b = NULL;
+
+    b = RECORD_LAYER_get_rbuf(&s->tls_rlayer);
+    FALCONTLS_free(b->bf_buf);
+    b->bf_buf = NULL;
+    return 1;
+}

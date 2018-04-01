@@ -121,6 +121,7 @@ typedef struct tls1_state_t {
     fc_u8   st_server_random[TLS_RANDOM_SIZE];
     fc_u8   st_client_random[TLS_RANDOM_SIZE];
     int     st_alert_dispatch;
+    int     st_change_cipher_spec;
 } TLS1_STATE;
 
 typedef struct tls_session_t {
@@ -133,7 +134,6 @@ typedef struct tls_session_t {
 struct fc_tls_t {
     TLS_STATEM                  tls_statem;
     bool                        tls_server;
-    bool                        tls_shutdown;
     const TLS_METHOD            *tls_method;
     TLS_CTX                     *tls_ctx;
     CERT                        *tls_cert;
@@ -147,6 +147,8 @@ struct fc_tls_t {
     int                         (*tls_handshake_func)(TLS *);
     RECORD_LAYER                tls_rlayer;
     TLS1_STATE                  tls1;
+    fc_u32                      tls_mode;
+    fc_u32                      tls_shutdown;
     fc_u32                      tls_max_send_fragment;
     fc_u32                      tls_split_send_fragment;
     fc_u32                      tls_max_pipelines;
