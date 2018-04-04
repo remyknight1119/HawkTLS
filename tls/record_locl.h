@@ -4,6 +4,8 @@
 #include <falcontls/types.h>
 #include <falcontls/tls.h>
 
+#define MAX_WARN_ALERT_COUNT    5
+
 #define RECORD_LAYER_get_rbuf(rl)               (&(rl)->rl_rbuf)
 #define RECORD_LAYER_get_wbuf(rl)               ((rl)->rl_wbuf)
 #define RECORD_LAYER_get_rrec(rl)               ((rl)->rl_rrec)

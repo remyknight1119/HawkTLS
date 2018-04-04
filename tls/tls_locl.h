@@ -122,6 +122,7 @@ typedef struct tls1_state_t {
     fc_u8   st_client_random[TLS_RANDOM_SIZE];
     int     st_alert_dispatch;
     int     st_change_cipher_spec;
+    int     st_send_connection_binding;
 } TLS1_STATE;
 
 typedef struct tls_session_t {

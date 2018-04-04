@@ -118,6 +118,8 @@ int tls_statem_accept(TLS *s);
 int tls_statem_connect(TLS *s);
 void tls_statem_clear(TLS *s);
 int TLS_in_init(TLS *s);
+int TLS_is_init_finished(TLS *s);
+int TLS_in_before(TLS *s);
 int tls_statem_get_in_handshake(TLS *s);
 int tls_get_message_header(TLS *s, int *mt);
 int tls_get_message_body(TLS *s, fc_ulong *len);

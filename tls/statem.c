@@ -404,6 +404,27 @@ TLS_in_init(TLS *s)
 }
 
 int
+TLS_is_init_finished(TLS *s)
+{
+    return !(s->tls_statem.sm_in_init) && 
+        (s->tls_statem.sm_hand_state == TLS_ST_OK);
+}
+
+int
+TLS_in_before(TLS *s)
+{
+    /*
+     * Historically being "in before" meant before anything had happened. In the
+     * current code though we remain in the "before" state for a while after we
+     * have started the handshake process (e.g. as a server waiting for the
+     * first message to arrive). There "in before" is taken to mean "in before"
+     * and not started any handshake process yet.
+     */
+    return (s->tls_statem.sm_hand_state == TLS_ST_BEFORE)
+        && (s->tls_statem.sm_state == MSG_FLOW_UNINITED);
+}
+
+int
 tls_statem_get_in_handshake(TLS *s)
 {
     return s->tls_statem.sm_in_handshake; 

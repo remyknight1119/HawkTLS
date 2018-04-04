@@ -287,45 +287,6 @@ start:
             goto f_err;
         }
 
-#if 0
-        if (TLS_is_init_finished(s) &&
-            !(s->s3->flags & TLS_FLAGS_NO_RENEGOTIATE_CIPHERS) &&
-            !s->s3->renegotiate) {
-            ssl3_renegotiate(s);
-            if (ssl3_renegotiate_check(s)) {
-                i = s->tls_handshake_func(s);
-                if (i < 0) {
-                    return (i);
-                }
-                if (i == 0) {
-                    return (-1);
-                }
-
-                if (!(s->mode & TLS_MODE_AUTO_RETRY)) {
-                    if (TLS_BUFFER_get_left(rbuf) == 0) {
-                        /* no read-ahead left? */
-                        BIO *bio;
-                        /*
-                         * In the case where we try to read application data,
-                         * but we trigger an TLS handshake, we return -1 with
-                         * the retry option set.  Otherwise renegotiation may
-                         * cause nasty problems in the blocking world
-                         */
-                        s->rwstate = TLS_READING;
-                        bio = TLS_get_rbio(s);
-                        BIO_clear_retry_flags(bio);
-                        BIO_set_retry_read(bio);
-                        return (-1);
-                    }
-                }
-            } else {
-                TLS_RECORD_set_read(rr);
-            }
-        } else {
-            /* Does this ever happen? */
-            TLS_RECORD_set_read(rr);
-        }
-#endif
         /*
          * we either finished a handshake or ignored the request, now try
          * again to obtain the (application) data we were asked for
@@ -337,39 +298,36 @@ start:
      * allowed send back a no renegotiation alert and carry on. WARNING:
      * experimental code, needs reviewing (steve)
      */
-#if 0
-    if (s->server &&
+    if (s->tls_server &&
         TLS_is_init_finished(s) &&
-        !s->s3->send_connection_binding &&
-        (s->version > TLS_VERSION) &&
-        (s->rlayer.handshake_fragment_len >= 4) &&
-        (rlayer->rl_handshake_fragment[0] == TLS_MT_CLIENT_HELLO) &&
-        (s->session != NULL) && (s->session->cipher != NULL) &&
-        !(s->options & TLS_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION)) {
+        !s->tls1.st_send_connection_binding &&
+        (rlayer->rl_handshake_fragment_len >= 4) &&
+        (rlayer->rl_handshake_fragment[0] == TLS1_MT_CLIENT_HELLO) &&
+        (s->tls_session != NULL) && (s->tls_session->se_ciphers != NULL)) {
         TLS_RECORD_set_length(rr, 0);
         TLS_RECORD_set_read(rr);
-        ssl3_send_alert(s, TLS_AL_WARNING, TLS_AD_NO_RENEGOTIATION);
+        tls_send_alert(s, TLS_AL_WARNING, TLS_AD_NO_RENEGOTIATION);
         goto start;
     }
-    if (s->rlayer.alert_fragment_len >= 2) {
-        int alert_level = s->rlayer.alert_fragment[0];
-        int alert_descr = s->rlayer.alert_fragment[1];
 
-        s->rlayer.alert_fragment_len = 0;
+    if (rlayer->rl_alert_fragment_len >= 2) {
+        int alert_level = rlayer->rl_alert_fragment[0];
+        int alert_descr = rlayer->rl_alert_fragment[1];
+
+        rlayer->rl_alert_fragment_len = 0;
 
         if (alert_level == TLS_AL_WARNING) {
-            s->s3->warn_alert = alert_descr;
+            //s->tls1.st_warn_alert = alert_descr;
             TLS_RECORD_set_read(rr);
 
-            s->rlayer.alert_count++;
-            if (s->rlayer.alert_count == MAX_WARN_ALERT_COUNT) {
+            rlayer->rl_alert_count++;
+            if (rlayer->rl_alert_count == MAX_WARN_ALERT_COUNT) {
                 al = TLS_AD_UNEXPECTED_MESSAGE;
-                TLSerr(TLS_F_TLS_READ_BYTES, TLS_R_TOO_MANY_WARN_ALERTS);
                 goto f_err;
             }
 
             if (alert_descr == TLS_AD_CLOSE_NOTIFY) {
-                s->shutdown |= TLS_RECEIVED_SHUTDOWN;
+                s->tls_shutdown |= TLS_RECEIVED_SHUTDOWN;
                 return (0);
             }
             /*
@@ -382,37 +340,26 @@ start:
              */
             else if (alert_descr == TLS_AD_NO_RENEGOTIATION) {
                 al = TLS_AD_HANDSHAKE_FAILURE;
-                TLSerr(TLS_F_TLS_READ_BYTES, TLS_R_NO_RENEGOTIATION);
                 goto f_err;
             }
-#ifdef TLS_AD_MISSING_SRP_USERNAME
-            else if (alert_descr == TLS_AD_MISSING_SRP_USERNAME)
-                return (0);
-#endif
         } else if (alert_level == TLS_AL_FATAL) {
-            char tmp[16];
-
-            s->rwstate = TLS_NOTHING;
-            s->s3->fatal_alert = alert_descr;
-            TLSerr(TLS_F_TLS_READ_BYTES, TLS_AD_REASON_OFFSET + alert_descr);
-            BIO_snprintf(tmp, sizeof tmp, "%d", alert_descr);
-            ERR_add_error_data(2, "TLS alert number ", tmp);
-            s->shutdown |= TLS_RECEIVED_SHUTDOWN;
+            s->tls_rwstate = TLS_NOTHING;
+            //s->tls1.st_fatal_alert = alert_descr;
+            s->tls_shutdown |= TLS_RECEIVED_SHUTDOWN;
             TLS_RECORD_set_read(rr);
-            TLS_CTX_remove_session(s->session_ctx, s->session);
+            //TLS_CTX_remove_session(s->tls_session_ctx, s->tls_session);
             return (0);
         } else {
             al = TLS_AD_ILLEGAL_PARAMETER;
-            TLSerr(TLS_F_TLS_READ_BYTES, TLS_R_UNKNOWN_ALERT_TYPE);
             goto f_err;
         }
 
         goto start;
     }
 
-    if (s->shutdown & TLS_SENT_SHUTDOWN) { /* but we have not received a
+    if (s->tls_shutdown & TLS_SENT_SHUTDOWN) { /* but we have not received a
                                             * shutdown */
-        s->rwstate = TLS_NOTHING;
+        s->tls_rwstate = TLS_NOTHING;
         TLS_RECORD_set_length(rr, 0);
         TLS_RECORD_set_read(rr);
         return (0);
@@ -420,13 +367,13 @@ start:
 
     if (TLS_RECORD_get_type(rr) == TLS_RT_CHANGE_CIPHER_SPEC) {
         al = TLS_AD_UNEXPECTED_MESSAGE;
-        TLSerr(TLS_F_TLS_READ_BYTES, TLS_R_CCS_RECEIVED_EARLY);
         goto f_err;
     }
 
     /*
      * Unexpected handshake message (Client Hello, or protocol violation)
      */
+#if 0
     if ((s->rlayer.handshake_fragment_len >= 4)
         && !ossl_statem_get_in_handshake(s)) {
         if (TLS_is_init_finished(s) &&
