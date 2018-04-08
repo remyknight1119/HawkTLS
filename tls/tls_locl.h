@@ -71,6 +71,9 @@
 /* Not a real MAC, just an indication it is part of cipher */
 #define TLS_AEAD                0x0000004U
 
+#define TLS_ST_READ_HEADER          0xF0
+#define TLS_ST_READ_BODY            0xF1
+#define TLS_ST_READ_DONE            0xF2
 
 typedef enum {
     TLS_NOTHING = 1,

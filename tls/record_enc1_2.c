@@ -27,9 +27,6 @@ tls1_2_read_bytes(TLS *s, int type, int *recvd_type, fc_u8 *buf,
     fc_u32          read_bytes = 0;
     int             al = 0;
     int             i = 0;
-#if 0
-    int             j = 0;
-#endif
     int             ret = 0;
 
     rlayer = &s->tls_rlayer;
@@ -373,40 +370,16 @@ start:
     /*
      * Unexpected handshake message (Client Hello, or protocol violation)
      */
-#if 0
-    if ((s->rlayer.handshake_fragment_len >= 4)
-        && !ossl_statem_get_in_handshake(s)) {
-        if (TLS_is_init_finished(s) &&
-            !(s->s3->flags & TLS_FLAGS_NO_RENEGOTIATE_CIPHERS)) {
-            ossl_statem_set_in_init(s, 1);
-            s->renegotiate = 1;
-            s->new_session = 1;
-        }
-        i = s->handshake_func(s);
-        if (i < 0)
+    if ((rlayer->rl_handshake_fragment_len >= 4)
+        && !tls_statem_get_in_handshake(s)) {
+        i = s->tls_handshake_func(s);
+        if (i < 0) {
             return (i);
+        }
         if (i == 0) {
-            TLSerr(TLS_F_TLS_READ_BYTES, TLS_R_TLS_HANDSHAKE_FAILURE);
             return (-1);
         }
 
-        if (!(s->mode & TLS_MODE_AUTO_RETRY)) {
-            if (TLS_BUFFER_get_left(rbuf) == 0) {
-                /* no read-ahead left? */
-                BIO *bio;
-                /*
-                 * In the case where we try to read application data, but we
-                 * trigger an TLS handshake, we return -1 with the retry
-                 * option set.  Otherwise renegotiation may cause nasty
-                 * problems in the blocking world
-                 */
-                s->rwstate = TLS_READING;
-                bio = TLS_get_rbio(s);
-                BIO_clear_retry_flags(bio);
-                BIO_set_retry_read(bio);
-                return (-1);
-            }
-        }
         goto start;
     }
 
@@ -432,22 +405,9 @@ start:
         al = TLS_AD_UNEXPECTED_MESSAGE;
         goto f_err;
     case TLS_RT_APPLICATION_DATA:
-        /*
-         * At this point, we were expecting handshake data, but have
-         * application data.  If the library was running inside ssl3_read()
-         * (i.e. in_read_app_data is set) and it makes sense to read
-         * application data at this point (session renegotiation not yet
-         * started), we will indulge it.
-         */
-        if (ossl_statem_app_data_allowed(s)) {
-            s->s3->in_read_app_data = 2;
-            return (-1);
-        } else {
-            al = TLS_AD_UNEXPECTED_MESSAGE;
-            goto f_err;
-        }
+        al = TLS_AD_UNEXPECTED_MESSAGE;
+        goto f_err;
     }
-#endif
     /* not reached */
 
  f_err:
