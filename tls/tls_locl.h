@@ -148,6 +148,8 @@ struct fc_tls_t {
     TLS_SESSION                 *tls_session;
     FC_EVP_CIPHER_CTX           *tls_enc_write_ctx;
     FC_STACK_OF(TLS_CIPHER)     *tls_cipher_list;
+    FC_EVP_CIPHER_CTX           *tls_enc_read_ctx; /* cryptographic state */
+    FC_EVP_MD_CTX               *tls_read_hash;      /* used for mac generation */
     int                         (*tls_handshake_func)(TLS *);
     RECORD_LAYER                tls_rlayer;
     TLS1_STATE                  tls1;

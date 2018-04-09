@@ -1,6 +1,39 @@
 #ifndef __FC_TLS1_H__
 #define __FC_TLS1_H__
 
+
+#define TLS1_RT_HEADER_LENGTH                   5
+
+/*
+ * This is the maximum MAC (digest) size used by the SSL library. Currently
+ * maximum of 20 is used by SHA1, but we reserve for future extension for
+ * 512-bit hashes.
+ */
+#define TLS1_RT_MAX_MD_SIZE                     64
+
+/* Maximum plaintext length: defined by SSL/TLS standards */
+#define TLS1_RT_MAX_PLAIN_LENGTH                16384
+
+/*
+ * The standards give a maximum encryption overhead of 1024 bytes. In
+ * practice the value is lower than this. The overhead is the maximum number
+ * of padding bytes (256) plus the mac size.
+ */
+#define TLS1_RT_MAX_ENCRYPTED_OVERHEAD  (256 + TLS1_RT_MAX_MD_SIZE)
+
+
+#define TLS1_RT_MAX_ENCRYPTED_LENGTH    \
+                (TLS1_RT_MAX_ENCRYPTED_OVERHEAD+TLS1_RT_MAX_PLAIN_LENGTH)
+#define TLS1_RT_MAX_PACKET_SIZE         \
+                (TLS1_RT_MAX_ENCRYPTED_LENGTH+TLS1_RT_HEADER_LENGTH)
+
+#define TLS1_MD_CLIENT_FINISHED_CONST   "\x43\x4C\x4E\x54"
+#define TLS1_MD_SERVER_FINISHED_CONST   "\x53\x52\x56\x52"
+
+#define TLS_VERSION                     0x0300
+#define TLS_VERSION_MAJOR               0x03
+#define TLS_VERSION_MINOR               0x00
+
 /* CCM ciphersuites from RFC7251 */
 #define TLS1_CK_ECDHE_ECDSA_WITH_AES_128_CCM            0x0300C0AC
 #define TLS1_CK_ECDHE_ECDSA_WITH_AES_256_CCM            0x0300C0AD

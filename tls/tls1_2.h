@@ -3,8 +3,6 @@
 
 #include <falcontls/types.h>
 
-#define TLS_RT_HEADER_LENGTH                5
-
 
 int tls1_2_new(TLS *s);
 void tls1_2_clear(TLS *s);

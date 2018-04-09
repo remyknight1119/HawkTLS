@@ -672,7 +672,7 @@ do_tls1_2_write(TLS *s, int type, const fc_u8 *buf, fc_u32 *pipelens,
          */
         TLS_RECORD_set_type(&wr[j], type); /* not needed but helps for
                                              * debugging */
-        TLS_RECORD_add_length(&wr[j], TLS_RT_HEADER_LENGTH);
+        TLS_RECORD_add_length(&wr[j], TLS1_RT_HEADER_LENGTH);
 
         if (create_empty_fragment) {
             /*

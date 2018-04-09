@@ -25,10 +25,18 @@
 #define RECORD_LAYER_set_first_record(rl)       ((rl)->rl_is_first_record = 1)
 #define RECORD_LAYER_clear_first_record(rl)     ((rl)->rl_is_first_record = 0)
 
+#define RECORD_LAYER_set_read_ahead(rl, ra)     ((rl)->rl_read_ahead = (ra))
+#define RECORD_LAYER_get_read_ahead(rl)         ((rl)->rl_read_ahead)
+#define RECORD_LAYER_get_packet(rl)             ((rl)->rl_packet)
+#define RECORD_LAYER_get_packet_length(rl)      ((rl)->rl_packet_length)
+#define RECORD_LAYER_add_packet_length(rl, inc) ((rl)->rl_packet_length += (inc))
+
 #define TLS_BUFFER_get_left(b)              ((b)->bf_left)
 #define TLS_BUFFER_set_left(b, l)           ((b)->bf_left = (l))
 #define TLS_BUFFER_add_left(b, l)           ((b)->bf_left += (l))
 #define TLS_BUFFER_get_buf(b)               ((b)->bf_buf)
+#define TLS_BUFFER_set_buf(b, n)            ((b)->bf_buf = (n))
+#define TLS_BUFFER_get_len(b)               ((b)->bf_len)
 #define TLS_BUFFER_get_offset(b)            ((b)->bf_offset)
 #define TLS_BUFFER_set_offset(b, o)         ((b)->bf_offset = (o))
 #define TLS_BUFFER_add_offset(b, o)         ((b)->bf_offset += (o))
@@ -99,6 +107,7 @@ typedef struct record_layer_t {
     TLS_RECORD      rl_rrec[FC_TLS_MAX_PIPELINES];
     fc_u32          rl_numrpipes;
     fc_u32          rl_numwpipes;
+    fc_u32          rl_packet_length;
     /* number of bytes sent so far */
     fc_u32          rl_wnum;
     fc_u8           rl_alert_fragment[2];
@@ -107,6 +116,7 @@ typedef struct record_layer_t {
     fc_u32          rl_alert_count;
     fc_u8           rl_handshake_fragment[4];
     fc_u32          rl_handshake_fragment_len;
+    fc_u32          rl_is_first_record;
     int             rl_rstate;
     /* number bytes written */
     int             rl_wpend_tot;

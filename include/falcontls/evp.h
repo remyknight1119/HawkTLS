@@ -1,6 +1,12 @@
 #ifndef __FC_EVP_H__
 #define __FC_EVP_H__
 
+#define FC_EVP_MAX_MD_SIZE              64/* longest known is SHA512 */
+#define FC_EVP_MAX_KEY_LENGTH           64
+#define FC_EVP_MAX_IV_LENGTH            16
+#define FC_EVP_MAX_BLOCK_LENGTH         32
+
+
 enum {
     FC_EVP_PKEY_RSA_ENC = 0,
     FC_EVP_PKEY_RSA_SIGN,

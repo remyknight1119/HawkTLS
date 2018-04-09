@@ -1,9 +1,11 @@
 
 #include <falcontls/tls.h>
+#include <falcontls/evp.h>
 #include <fc_log.h>
 
 #include "statem.h"
 #include "tls_locl.h"
+#include "tls1.h"
 #include "tls1_2.h"
 #include "record_locl.h"
 #include "alert.h"
@@ -22,15 +24,15 @@ tls1_get_record(TLS *s)
     TLS_BUFFER      *rbuf = NULL;
     TLS_SESSION     *sess = NULL;
     fc_u8           *p = NULL;
-    fc_u8           md[EVP_MAX_MD_SIZE];
+    fc_u8           md[FC_EVP_MAX_MD_SIZE];
     fc_u32          num_recs = 0;
     fc_u32          max_recs = 0;
     fc_u32          j = 0;
     short           version = 0;
     unsigned        mac_size = 0;
     int             imac_size = 0;
-    int             ssl_major = 0;
-    int             ssl_minor = 0;
+    int             tls_major = 0;
+    int             tls_minor = 0;
     int             al = 0;;
     int             enc_err = 0;
     int             n = 0;
@@ -50,8 +52,8 @@ tls1_get_record(TLS *s)
         /* check if we have the header */
         if ((RECORD_LAYER_get_rstate(rl) != TLS_ST_READ_BODY) ||
             (RECORD_LAYER_get_packet_length(rl)
-             < TLS_RT_HEADER_LENGTH)) {
-            n = tls1_read_n(s, TLS_RT_HEADER_LENGTH,
+             < TLS1_RT_HEADER_LENGTH)) {
+            n = tls1_read_n(s, TLS1_RT_HEADER_LENGTH,
                             TLS_BUFFER_get_len(rbuf), 0,
                             num_recs == 0 ? 1 : 0);
             if (n <= 0) {
@@ -66,84 +68,46 @@ tls1_get_record(TLS *s)
              */
             if (s->tls_server && RECORD_LAYER_is_first_record(rl)
                 && (p[0] & 0x80) && (p[2] == TLS1_MT_CLIENT_HELLO)) {
-                al = SSL_AD_HANDSHAKE_FAILURE;
+                al = TLS_AD_HANDSHAKE_FAILURE;
                 goto f_err;
-            } else {
-                /* SSLv3+ style record */
-                /* Pull apart the header into the TLS_RECORD */
-                rr[num_recs].type = *(p++);
-                ssl_major = *(p++);
-                ssl_minor = *(p++);
-                version = (ssl_major << 8) | ssl_minor;
-                rr[num_recs].rec_version = version;
-                n2s(p, rr[num_recs].length);
+            }
+            /* SSLv3+ style record */
+            /* Pull apart the header into the TLS_RECORD */
+            rr[num_recs].rd_type = *(p++);
+            tls_major = *(p++);
+            tls_minor = *(p++);
+            version = (tls_major << 8) | tls_minor;
+            rr[num_recs].rd_rec_version = version;
+            n2s(p, rr[num_recs].rd_length);
 
-                /* Lets check version */
-                if (!s->first_packet && version != s->version) {
-                    if ((s->version & 0xFF00) == (version & 0xFF00)
-                        && !s->enc_write_ctx && !s->write_hash) {
-                        if (rr->type == TLS_RT_ALERT) {
-                            /*
-                             * The record is using an incorrect version number,
-                             * but what we've got appears to be an alert. We
-                             * haven't read the body yet to check whether its a
-                             * fatal or not - but chances are it is. We probably
-                             * shouldn't send a fatal alert back. We'll just
-                             * end.
-                             */
-                            goto err;
-                        }
-                        /*
-                         * Send back error using their minor version number :-)
-                         */
-                        s->tls_version = (unsigned short)version;
-                    }
-                    al = TLS_AD_PROTOCOL_VERSION;
-                    goto f_err;
-                }
-
-                if ((version >> 8) != TLS_VERSION_MAJOR) {
-                    if (RECORD_LAYER_is_first_record(&s->rlayer)) {
-                        /* Go back to start of packet, look at the five bytes
-                         * that we have. */
-                        p = RECORD_LAYER_get_packet(&s->rlayer);
-                        if (strncmp((char *)p, "GET ", 4) == 0 ||
-                            strncmp((char *)p, "POST ", 5) == 0 ||
-                            strncmp((char *)p, "HEAD ", 5) == 0 ||
-                            strncmp((char *)p, "PUT ", 4) == 0) {
-                            SSLerr(SSL_F_TLS_GET_RECORD, SSL_R_HTTP_REQUEST);
-                            goto err;
-                        } else if (strncmp((char *)p, "CONNE", 5) == 0) {
-                            SSLerr(SSL_F_TLS_GET_RECORD,
-                                   SSL_R_HTTPS_PROXY_REQUEST);
-                            goto err;
-                        }
-
-                        /* Doesn't look like TLS - don't send an alert */
-                        goto err;
-                    } 
-                    al = SSL_AD_PROTOCOL_VERSION;
-                    goto f_err;
-                }
-
-                if (rr[num_recs].length >
-                    TLS_BUFFER_get_len(rbuf) - TLS_RT_HEADER_LENGTH) {
-                    al = SSL_AD_RECORD_OVERFLOW;
-                    goto f_err;
-                }
+            /* Lets check version */
+            if (!s->tls_first_packet && version != s->tls_version) {
+                al = TLS_AD_PROTOCOL_VERSION;
+                goto f_err;
             }
 
-            /* now s->rlayer.rstate == SSL_ST_READ_BODY */
+            if ((version >> 8) != TLS_VERSION_MAJOR) {
+                al = TLS_AD_PROTOCOL_VERSION;
+                goto f_err;
+            }
+
+            if (rr[num_recs].rd_length >
+                    TLS_BUFFER_get_len(rbuf) - TLS1_RT_HEADER_LENGTH) {
+                al = TLS_AD_RECORD_OVERFLOW;
+                goto f_err;
+            }
+
+            /* now s->rlayer.rstate == TLS_ST_READ_BODY */
         }
 
         /*
-         * s->rlayer.rstate == SSL_ST_READ_BODY, get and decode the data.
+         * s->rlayer.rstate == TLS_ST_READ_BODY, get and decode the data.
          * Calculate how much more data we need to read for the rest of the
          * record
          */
-        i = rr[num_recs].length;
+        i = rr[num_recs].rd_length;
         if (i > 0) {
-            /* now s->packet_length == TLS_RT_HEADER_LENGTH */
+            /* now s->packet_length == TLS1_RT_HEADER_LENGTH */
             n = tls1_read_n(s, i, i, 1, 0);
             if (n <= 0) {
                 return (n);     /* error or non-blocking io */
@@ -151,15 +115,15 @@ tls1_get_record(TLS *s)
         }
 
         /* set state for later operations */
-        RECORD_LAYER_set_rstate(&s->rlayer, TLS_ST_READ_HEADER);
+        RECORD_LAYER_set_rstate(rl, TLS_ST_READ_HEADER);
 
         /*
-         * At this point, s->packet_length == TLS_RT_HEADER_LENGTH + rr->length,
+         * At this point, s->packet_length == TLS1_RT_HEADER_LENGTH + rr->length,
          * or s->packet_length == SSL2_RT_HEADER_LENGTH + rr->length
          * and we have that many bytes in s->packet
          */
-        rr[num_recs].input =
-            &(RECORD_LAYER_get_packet(&s->rlayer)[TLS_RT_HEADER_LENGTH]);
+        rr[num_recs].rd_input =
+            &(RECORD_LAYER_get_packet(rl)[TLS1_RT_HEADER_LENGTH]);
 
         /*
          * ok, we can now read from 's->packet' data into 'rr' rr->input points
@@ -174,60 +138,56 @@ tls1_get_record(TLS *s)
          */
 
         /* check is not needed I believe */
-        if (rr[num_recs].length > TLS_RT_MAX_ENCRYPTED_LENGTH) {
-            al = SSL_AD_RECORD_OVERFLOW;
+        if (rr[num_recs].rd_length > TLS1_RT_MAX_ENCRYPTED_LENGTH) {
+            al = TLS_AD_RECORD_OVERFLOW;
             goto f_err;
         }
 
         /* decrypt in place in 'rr->input' */
-        rr[num_recs].data = rr[num_recs].input;
-        rr[num_recs].orig_len = rr[num_recs].length;
+        rr[num_recs].rd_data = rr[num_recs].rd_input;
+        rr[num_recs].rd_orig_len = rr[num_recs].rd_length;
 
         /* Mark this record as not read by upper layers yet */
-        rr[num_recs].read = 0;
+        rr[num_recs].rd_read = 0;
 
         num_recs++;
 
         /* we have pulled in a full packet so zero things */
-        RECORD_LAYER_reset_packet_length(&s->rlayer);
-        RECORD_LAYER_clear_first_record(&s->rlayer);
+        RECORD_LAYER_reset_packet_length(rl);
+        RECORD_LAYER_clear_first_record(rl);
     } while (num_recs < max_recs
-             && rr[num_recs - 1].type == TLS_RT_APPLICATION_DATA
-             && SSL_USE_EXPLICIT_IV(s)
-             && s->enc_read_ctx != NULL
-             && (EVP_CIPHER_flags(EVP_CIPHER_CTX_cipher(s->enc_read_ctx))
+             && rr[num_recs - 1].rd_type == TLS_RT_APPLICATION_DATA
+             && TLS_USE_EXPLICIT_IV(s)
+             && s->tls_enc_read_ctx != NULL
+             && (EVP_CIPHER_flags(EVP_CIPHER_CTX_cipher(s->tls_enc_read_ctx))
                  & EVP_CIPH_FLAG_PIPELINE)
-             && ssl3_record_app_data_waiting(s));
+             && tls1_record_app_data_waiting(s));
 
     /*
      * If in encrypt-then-mac mode calculate mac from encrypted record. All
      * the details below are public so no timing details can leak.
      */
-    if (SSL_READ_ETM(s) && s->read_hash) {
+    if (TLS_READ_ETM(s) && s->read_hash) {
         fc_u8 *mac;
 
         imac_size = EVP_MD_CTX_size(s->read_hash);
         assert(imac_size >= 0 && imac_size <= EVP_MAX_MD_SIZE);
         if (imac_size < 0 || imac_size > EVP_MAX_MD_SIZE) {
-                al = SSL_AD_INTERNAL_ERROR;
-                SSLerr(SSL_F_TLS_GET_RECORD, ERR_LIB_EVP);
+                al = TLS_AD_INTERNAL_ERROR;
                 goto f_err;
         }
         mac_size = (unsigned)imac_size;
 
         for (j = 0; j < num_recs; j++) {
             if (rr[j].length < mac_size) {
-                al = SSL_AD_DECODE_ERROR;
-                SSLerr(SSL_F_TLS_GET_RECORD, SSL_R_LENGTH_TOO_SHORT);
+                al = TLS_AD_DECODE_ERROR;
                 goto f_err;
             }
             rr[j].length -= mac_size;
             mac = rr[j].data + rr[j].length;
             i = s->method->ssl3_enc->mac(s, &rr[j], md, 0 /* not send */ );
             if (i < 0 || CRYPTO_memcmp(md, mac, (size_t)mac_size) != 0) {
-                al = SSL_AD_BAD_RECORD_MAC;
-                SSLerr(SSL_F_TLS_GET_RECORD,
-                       SSL_R_DECRYPTION_FAILED_OR_BAD_RECORD_MAC);
+                al = TLS_AD_BAD_RECORD_MAC;
                 goto f_err;
             }
         }
@@ -241,10 +201,10 @@ tls1_get_record(TLS *s)
      *    -1: if the padding is invalid
      */
     if (enc_err == 0) {
-        al = SSL_AD_DECRYPTION_FAILED;
+        al = TLS_AD_DECRYPTION_FAILED;
         goto f_err;
     }
-#ifdef SSL_DEBUG
+#ifdef TLS_DEBUG
     printf("dec %d\n", rr->length);
     {
         fc_u32 z;
@@ -257,13 +217,13 @@ tls1_get_record(TLS *s)
     /* r->length is now the compressed data plus mac */
     if ((sess != NULL) &&
         (s->enc_read_ctx != NULL) &&
-        (!SSL_READ_ETM(s) && EVP_MD_CTX_md(s->read_hash) != NULL)) {
+        (!TLS_READ_ETM(s) && EVP_MD_CTX_md(s->read_hash) != NULL)) {
         /* s->read_hash != NULL => mac_size != -1 */
         fc_u8 *mac = NULL;
-        fc_u8 mac_tmp[EVP_MAX_MD_SIZE];
+        fc_u8 mac_tmp[FC_EVP_MAX_MD_SIZE];
 
         mac_size = EVP_MD_CTX_size(s->read_hash);
-        OPENSSL_assert(mac_size <= EVP_MAX_MD_SIZE);
+        OPENTLS_assert(mac_size <= EVP_MAX_MD_SIZE);
 
         for (j = 0; j < num_recs; j++) {
             /*
@@ -276,8 +236,7 @@ tls1_get_record(TLS *s)
                 /* CBC records must have a padding length byte too. */
                 (EVP_CIPHER_CTX_mode(s->enc_read_ctx) == EVP_CIPH_CBC_MODE &&
                  rr[j].orig_len < mac_size + 1)) {
-                al = SSL_AD_DECODE_ERROR;
-                SSLerr(SSL_F_TLS_GET_RECORD, SSL_R_LENGTH_TOO_SHORT);
+                al = TLS_AD_DECODE_ERROR;
                 goto f_err;
             }
 
@@ -318,9 +277,9 @@ tls1_get_record(TLS *s)
          * not reveal which kind of error occurred -- this might become
          * visible to an attacker (e.g. via a logfile)
          */
-        al = SSL_AD_BAD_RECORD_MAC;
-        SSLerr(SSL_F_TLS_GET_RECORD,
-               SSL_R_DECRYPTION_FAILED_OR_BAD_RECORD_MAC);
+        al = TLS_AD_BAD_RECORD_MAC;
+        SSLerr(TLS_F_TLS_GET_RECORD,
+               TLS_R_DECRYPTION_FAILED_OR_BAD_RECORD_MAC);
         goto f_err;
     }
 
@@ -328,18 +287,18 @@ tls1_get_record(TLS *s)
         /* rr[j].length is now just compressed */
         if (s->expand != NULL) {
             if (rr[j].length > TLS_RT_MAX_COMPRESSED_LENGTH) {
-                al = SSL_AD_RECORD_OVERFLOW;
-                SSLerr(SSL_F_TLS_GET_RECORD, SSL_R_COMPRESSED_LENGTH_TOO_LONG);
+                al = TLS_AD_RECORD_OVERFLOW;
+                SSLerr(TLS_F_TLS_GET_RECORD, TLS_R_COMPRESSED_LENGTH_TOO_LONG);
                 goto f_err;
             }
             if (!ssl3_do_uncompress(s, &rr[j])) {
-                al = SSL_AD_DECOMPRESSION_FAILURE;
+                al = TLS_AD_DECOMPRESSION_FAILURE;
                 goto f_err;
             }
         }
 
         if (rr[j].length > TLS_RT_MAX_PLAIN_LENGTH) {
-            al = SSL_AD_RECORD_OVERFLOW;
+            al = TLS_AD_RECORD_OVERFLOW;
             goto f_err;
         }
 
@@ -357,7 +316,7 @@ tls1_get_record(TLS *s)
             RECORD_LAYER_inc_empty_record_count(&s->rlayer);
             if (RECORD_LAYER_get_empty_record_count(&s->rlayer)
                 > MAX_EMPTY_RECORDS) {
-                al = SSL_AD_UNEXPECTED_MESSAGE;
+                al = TLS_AD_UNEXPECTED_MESSAGE;
                 goto f_err;
             }
         } else {
