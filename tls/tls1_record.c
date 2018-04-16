@@ -16,6 +16,51 @@ tls1_read_n(TLS *s, int n, int max, int extend, int clearold)
     return 0;
 }
 
+/*
+ * Peeks ahead into "read_ahead" data to see if we have a whole record waiting
+ * for us in the buffer.
+ */
+static int 
+tls1_record_app_data_waiting(TLS *s)
+{
+    TLS_BUFFER      *rbuf = NULL;
+    int             left = 0;
+    int             len = 0;
+    fc_u8           *p = NULL;
+
+    rbuf = RECORD_LAYER_get_rbuf(&s->tls_rlayer);
+
+    p = TLS_BUFFER_get_buf(rbuf);
+    if (p == NULL) {
+        return 0;
+    }
+
+    left = TLS_BUFFER_get_left(rbuf);
+
+    if (left < TLS1_RT_HEADER_LENGTH) {
+        return 0;
+    }
+
+    p += TLS_BUFFER_get_offset(rbuf);
+
+    /*
+     * We only check the type and record length, we will sanity check version
+     * etc later
+     */
+    if (*p != TLS_RT_APPLICATION_DATA) {
+        return 0;
+    }
+
+    p += 3;
+    n2s(p, len);
+
+    if (left < TLS1_RT_HEADER_LENGTH + len) {
+        return 0;
+    }
+
+    return 1;
+}
+
 int
 tls1_get_record(TLS *s)
 {
@@ -159,22 +204,23 @@ tls1_get_record(TLS *s)
              && rr[num_recs - 1].rd_type == TLS_RT_APPLICATION_DATA
              && TLS_USE_EXPLICIT_IV(s)
              && s->tls_enc_read_ctx != NULL
-             && (EVP_CIPHER_flags(EVP_CIPHER_CTX_cipher(s->tls_enc_read_ctx))
-                 & EVP_CIPH_FLAG_PIPELINE)
+             &&
+             (FC_EVP_CIPHER_flags(FC_EVP_CIPHER_CTX_cipher(s->tls_enc_read_ctx))
+                 & FC_EVP_CIPH_FLAG_PIPELINE)
              && tls1_record_app_data_waiting(s));
 
     /*
      * If in encrypt-then-mac mode calculate mac from encrypted record. All
      * the details below are public so no timing details can leak.
      */
-    if (TLS_READ_ETM(s) && s->read_hash) {
+    if (TLS_READ_ETM(s) && s->tls_read_hash) {
         fc_u8 *mac;
 
-        imac_size = EVP_MD_CTX_size(s->read_hash);
-        assert(imac_size >= 0 && imac_size <= EVP_MAX_MD_SIZE);
+        imac_size = EVP_MD_CTX_size(s->tls_read_hash);
+        fc_assert(imac_size >= 0 && imac_size <= EVP_MAX_MD_SIZE);
         if (imac_size < 0 || imac_size > EVP_MAX_MD_SIZE) {
-                al = TLS_AD_INTERNAL_ERROR;
-                goto f_err;
+            al = TLS_AD_INTERNAL_ERROR;
+            goto f_err;
         }
         mac_size = (unsigned)imac_size;
 
@@ -185,7 +231,7 @@ tls1_get_record(TLS *s)
             }
             rr[j].length -= mac_size;
             mac = rr[j].data + rr[j].length;
-            i = s->method->ssl3_enc->mac(s, &rr[j], md, 0 /* not send */ );
+            i = s->tls_method->ssl3_enc->mac(s, &rr[j], md, 0 /* not send */ );
             if (i < 0 || CRYPTO_memcmp(md, mac, (size_t)mac_size) != 0) {
                 al = TLS_AD_BAD_RECORD_MAC;
                 goto f_err;
@@ -193,7 +239,7 @@ tls1_get_record(TLS *s)
         }
     }
 
-    enc_err = s->method->ssl3_enc->enc(s, rr, num_recs, 0);
+    enc_err = s->tls_method->ssl3_enc->enc(s, rr, num_recs, 0);
     /*-
      * enc_err is:
      *    0: (in non-constant time) if the record is publically invalid.
@@ -204,15 +250,6 @@ tls1_get_record(TLS *s)
         al = TLS_AD_DECRYPTION_FAILED;
         goto f_err;
     }
-#ifdef TLS_DEBUG
-    printf("dec %d\n", rr->length);
-    {
-        fc_u32 z;
-        for (z = 0; z < rr->length; z++)
-            printf("%02X%c", rr->data[z], ((z + 1) % 16) ? ' ' : '\n');
-    }
-    printf("\n");
-#endif
 
     /* r->length is now the compressed data plus mac */
     if ((sess != NULL) &&
@@ -260,7 +297,7 @@ tls1_get_record(TLS *s)
                 mac = &rr[j].data[rr[j].length];
             }
 
-            i = s->method->ssl3_enc->mac(s, &rr[j], md, 0 /* not send */ );
+            i = s->tls_method->ssl3_enc->mac(s, &rr[j], md, 0 /* not send */ );
             if (i < 0 || mac == NULL
                 || CRYPTO_memcmp(md, mac, (size_t)mac_size) != 0)
                 enc_err = -1;
@@ -278,8 +315,6 @@ tls1_get_record(TLS *s)
          * visible to an attacker (e.g. via a logfile)
          */
         al = TLS_AD_BAD_RECORD_MAC;
-        SSLerr(TLS_F_TLS_GET_RECORD,
-               TLS_R_DECRYPTION_FAILED_OR_BAD_RECORD_MAC);
         goto f_err;
     }
 
@@ -288,7 +323,6 @@ tls1_get_record(TLS *s)
         if (s->expand != NULL) {
             if (rr[j].length > TLS_RT_MAX_COMPRESSED_LENGTH) {
                 al = TLS_AD_RECORD_OVERFLOW;
-                SSLerr(TLS_F_TLS_GET_RECORD, TLS_R_COMPRESSED_LENGTH_TOO_LONG);
                 goto f_err;
             }
             if (!ssl3_do_uncompress(s, &rr[j])) {
@@ -313,18 +347,18 @@ tls1_get_record(TLS *s)
 
         /* just read a 0 length packet */
         if (rr[j].length == 0) {
-            RECORD_LAYER_inc_empty_record_count(&s->rlayer);
-            if (RECORD_LAYER_get_empty_record_count(&s->rlayer)
+            RECORD_LAYER_inc_empty_record_count(rl);
+            if (RECORD_LAYER_get_empty_record_count(rl)
                 > MAX_EMPTY_RECORDS) {
                 al = TLS_AD_UNEXPECTED_MESSAGE;
                 goto f_err;
             }
         } else {
-            RECORD_LAYER_reset_empty_record_count(&s->rlayer);
+            RECORD_LAYER_reset_empty_record_count(rl);
         }
     }
 
-    RECORD_LAYER_set_numrpipes(&s->rlayer, num_recs);
+    RECORD_LAYER_set_numrpipes(rl, num_recs);
     return 1;
 
  f_err:
