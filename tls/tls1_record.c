@@ -1,6 +1,8 @@
+#include <string.h>
 
 #include <falcontls/tls.h>
 #include <falcontls/evp.h>
+#include <fc_assert.h>
 #include <fc_log.h>
 
 #include "statem.h"
@@ -61,6 +63,15 @@ tls1_record_app_data_waiting(TLS *s)
     return 1;
 }
 
+
+/*
+ * MAX_EMPTY_RECORDS defines the number of consecutive, empty records that
+ * will be processed per call to tls1_get_record. Without this limit an
+ * attacker could send empty records at a faster rate than we can process and
+ * cause tls1_get_record to loop forever.
+ */
+#define MAX_EMPTY_RECORDS 32
+
 int
 tls1_get_record(TLS *s)
 {
@@ -75,7 +86,6 @@ tls1_get_record(TLS *s)
     fc_u32          j = 0;
     short           version = 0;
     unsigned        mac_size = 0;
-    int             imac_size = 0;
     int             tls_major = 0;
     int             tls_minor = 0;
     int             al = 0;;
@@ -209,37 +219,7 @@ tls1_get_record(TLS *s)
                  & FC_EVP_CIPH_FLAG_PIPELINE)
              && tls1_record_app_data_waiting(s));
 
-    /*
-     * If in encrypt-then-mac mode calculate mac from encrypted record. All
-     * the details below are public so no timing details can leak.
-     */
-    if (TLS_READ_ETM(s) && s->tls_read_hash) {
-        fc_u8 *mac;
-
-        imac_size = EVP_MD_CTX_size(s->tls_read_hash);
-        fc_assert(imac_size >= 0 && imac_size <= EVP_MAX_MD_SIZE);
-        if (imac_size < 0 || imac_size > EVP_MAX_MD_SIZE) {
-            al = TLS_AD_INTERNAL_ERROR;
-            goto f_err;
-        }
-        mac_size = (unsigned)imac_size;
-
-        for (j = 0; j < num_recs; j++) {
-            if (rr[j].length < mac_size) {
-                al = TLS_AD_DECODE_ERROR;
-                goto f_err;
-            }
-            rr[j].length -= mac_size;
-            mac = rr[j].data + rr[j].length;
-            i = s->tls_method->ssl3_enc->mac(s, &rr[j], md, 0 /* not send */ );
-            if (i < 0 || CRYPTO_memcmp(md, mac, (size_t)mac_size) != 0) {
-                al = TLS_AD_BAD_RECORD_MAC;
-                goto f_err;
-            }
-        }
-    }
-
-    enc_err = s->tls_method->ssl3_enc->enc(s, rr, num_recs, 0);
+    enc_err = s->tls_method->md_enc->em_enc(s, rr, num_recs, 0);
     /*-
      * enc_err is:
      *    0: (in non-constant time) if the record is publically invalid.
@@ -253,56 +233,31 @@ tls1_get_record(TLS *s)
 
     /* r->length is now the compressed data plus mac */
     if ((sess != NULL) &&
-        (s->enc_read_ctx != NULL) &&
-        (!TLS_READ_ETM(s) && EVP_MD_CTX_md(s->read_hash) != NULL)) {
+        (s->tls_enc_read_ctx != NULL) &&
+        FC_EVP_MD_CTX_md(s->tls_read_hash) != NULL) {
         /* s->read_hash != NULL => mac_size != -1 */
-        fc_u8 *mac = NULL;
-        fc_u8 mac_tmp[FC_EVP_MAX_MD_SIZE];
+        fc_u8   *mac = NULL;
 
-        mac_size = EVP_MD_CTX_size(s->read_hash);
-        OPENTLS_assert(mac_size <= EVP_MAX_MD_SIZE);
+        mac_size = FC_EVP_MD_CTX_size(s->tls_read_hash);
+        fc_assert(mac_size <= FC_EVP_MAX_MD_SIZE);
 
         for (j = 0; j < num_recs; j++) {
             /*
-             * orig_len is the length of the record before any padding was
-             * removed. This is public information, as is the MAC in use,
-             * therefore we can safely process the record in a different amount
-             * of time if it's too short to possibly contain a MAC.
+             * In this case there's no padding, so |rec->orig_len| equals
+             * |rec->length| and we checked that there's enough bytes for
+             * |mac_size| above.
              */
-            if (rr[j].orig_len < mac_size ||
-                /* CBC records must have a padding length byte too. */
-                (EVP_CIPHER_CTX_mode(s->enc_read_ctx) == EVP_CIPH_CBC_MODE &&
-                 rr[j].orig_len < mac_size + 1)) {
-                al = TLS_AD_DECODE_ERROR;
-                goto f_err;
-            }
+            rr[j].rd_length -= mac_size;
+            mac = &rr[j].rd_data[rr[j].rd_length];
 
-            if (EVP_CIPHER_CTX_mode(s->enc_read_ctx) == EVP_CIPH_CBC_MODE) {
-                /*
-                 * We update the length so that the TLS header bytes can be
-                 * constructed correctly but we need to extract the MAC in
-                 * constant time from within the record, without leaking the
-                 * contents of the padding bytes.
-                 */
-                mac = mac_tmp;
-                ssl3_cbc_copy_mac(mac_tmp, &rr[j], mac_size);
-                rr[j].length -= mac_size;
-            } else {
-                /*
-                 * In this case there's no padding, so |rec->orig_len| equals
-                 * |rec->length| and we checked that there's enough bytes for
-                 * |mac_size| above.
-                 */
-                rr[j].length -= mac_size;
-                mac = &rr[j].data[rr[j].length];
-            }
-
-            i = s->tls_method->ssl3_enc->mac(s, &rr[j], md, 0 /* not send */ );
+            i = s->tls_method->md_enc->em_mac(s, &rr[j], md, 0 /* not send */ );
             if (i < 0 || mac == NULL
-                || CRYPTO_memcmp(md, mac, (size_t)mac_size) != 0)
+                || memcmp(md, mac, (size_t)mac_size) != 0) {
                 enc_err = -1;
-            if (rr->length > TLS_RT_MAX_COMPRESSED_LENGTH + mac_size)
+            }
+            if (rr->rd_length > TLS1_RT_MAX_PLAIN_LENGTH + mac_size) {
                 enc_err = -1;
+            }
         }
     }
 
@@ -319,34 +274,22 @@ tls1_get_record(TLS *s)
     }
 
     for (j = 0; j < num_recs; j++) {
-        /* rr[j].length is now just compressed */
-        if (s->expand != NULL) {
-            if (rr[j].length > TLS_RT_MAX_COMPRESSED_LENGTH) {
-                al = TLS_AD_RECORD_OVERFLOW;
-                goto f_err;
-            }
-            if (!ssl3_do_uncompress(s, &rr[j])) {
-                al = TLS_AD_DECOMPRESSION_FAILURE;
-                goto f_err;
-            }
-        }
-
-        if (rr[j].length > TLS_RT_MAX_PLAIN_LENGTH) {
+        if (rr[j].rd_length > TLS1_RT_MAX_PLAIN_LENGTH) {
             al = TLS_AD_RECORD_OVERFLOW;
             goto f_err;
         }
 
-        rr[j].off = 0;
+        rr[j].rd_off = 0;
         /*-
          * So at this point the following is true
-         * rr[j].type   is the type of record
-         * rr[j].length == number of bytes in record
-         * rr[j].off    == offset to first valid byte
-         * rr[j].data   == where to take bytes from, increment after use :-).
+         * rr[j].rd_type   is the type of record
+         * rr[j].rd_length == number of bytes in record
+         * rr[j].rd_off    == offset to first valid byte
+         * rr[j].rd_data   == where to take bytes from, increment after use :-).
          */
 
         /* just read a 0 length packet */
-        if (rr[j].length == 0) {
+        if (rr[j].rd_length == 0) {
             RECORD_LAYER_inc_empty_record_count(rl);
             if (RECORD_LAYER_get_empty_record_count(rl)
                 > MAX_EMPTY_RECORDS) {
@@ -363,6 +306,5 @@ tls1_get_record(TLS *s)
 
  f_err:
     tls_send_alert(s, TLS_AL_FATAL, al);
- err:
     return ret;
 }

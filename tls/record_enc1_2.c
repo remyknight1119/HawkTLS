@@ -102,7 +102,7 @@ start:
     do {
         /* get new records if necessary */
         if (num_recs == 0) {
-            ret = tls_get_record(s);
+            ret = tls1_get_record(s);
             if (ret <= 0) {
                 return (ret);
             }

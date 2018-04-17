@@ -117,6 +117,8 @@ typedef struct record_layer_t {
     fc_u8           rl_handshake_fragment[4];
     fc_u32          rl_handshake_fragment_len;
     fc_u32          rl_is_first_record;
+    /* The number of consecutive empty records we have received */
+    fc_u32          rl_empty_record_count;
     int             rl_rstate;
     /* number bytes written */
     int             rl_wpend_tot;
@@ -153,6 +155,6 @@ int tls_setup_write_buffer(TLS *s, fc_u32 numwpipes, size_t len);
 int tls_release_write_buffer(TLS *s);
 int tls_release_read_buffer(TLS *s);
 int RECORD_LAYER_write_pending(const RECORD_LAYER *rl);
-int tls_get_record(TLS *s);
+int tls1_get_record(TLS *s);
 
 #endif

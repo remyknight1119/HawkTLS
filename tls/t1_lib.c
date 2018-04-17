@@ -8,6 +8,7 @@
 
 TLS_ENC_METHOD const TLSv1_2_enc_data = {
     .em_enc = tls1_enc,
+    .em_mac = tls1_mac,
     .em_set_handshake_header = tls1_set_handshake_header,
     .em_hhlen = TLS_HM_HEADER_LENGTH,
     .em_enc_flags = TLS_ENC_FLAG_EXPLICIT_IV,
@@ -15,6 +16,12 @@ TLS_ENC_METHOD const TLSv1_2_enc_data = {
 
 int
 tls1_enc(TLS *s, TLS_RECORD *recs, fc_u32 n_recs, int sending)
+{
+    return 1;
+}
+
+int
+tls1_mac(TLS *s, TLS_RECORD *rec, fc_u8 *md, int sending)
 {
     return 1;
 }

@@ -176,6 +176,7 @@ struct fc_tls_t {
 
 typedef struct tls_enc_method_t {
     int         (*em_enc)(TLS *, TLS_RECORD *, fc_u32, int);
+    int         (*em_mac)(TLS *, TLS_RECORD *, fc_u8 *, int);
     int         (*em_set_handshake_header)(TLS *s, int type, fc_ulong len);
     /* Handshake header length */
     fc_u32      em_hhlen;
@@ -286,6 +287,7 @@ const TLS_METHOD *func_name(void)  \
 int tls_security_cert(TLS *s, TLS_CTX *ctx, FC_X509 *x, int vfy, int is_ee);
 int tls_fill_hello_random(TLS *s, int server, fc_u8 *result, int len);
 int tls1_enc(TLS *s, TLS_RECORD *recs, fc_u32 n_recs, int sending);
+int tls1_mac(TLS *s, TLS_RECORD *rec, fc_u8 *md, int sending);
 int tls1_set_handshake_header(TLS *s, int htype, fc_ulong len);
 TLS_RWSTATE TLS_want(const TLS *s);
 CERT *tls_cert_new(void);
