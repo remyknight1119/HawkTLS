@@ -2,6 +2,7 @@
 
 #include <falcontls/tls.h>
 #include <falcontls/evp.h>
+#include <falcontls/bio.h>
 #include <fc_assert.h>
 #include <fc_log.h>
 
@@ -15,7 +16,128 @@
 int
 tls1_read_n(TLS *s, int n, int max, int extend, int clearold)
 {
-    return 0;
+    /*
+     * If extend == 0, obtain new n-byte packet; if extend == 1, increase
+     * packet by another n bytes. The packet will be in the sub-array of
+     * s->s3->rbuf.buf specified by s->packet and s->packet_length. (If
+     * s->rlayer.read_ahead is set, 'max' bytes may be stored in rbuf [plus
+     * s->packet_length bytes if extend == 1].)
+     * if clearold == 1, move the packet to the start of the buffer; if
+     * clearold == 0 then leave any old packets where they were
+     */
+    fc_u8           *pkt = NULL;
+    TLS_BUFFER      *rb = NULL;;
+    size_t          align = 0;
+    int             i = 0;
+    int             len = 0;
+    int             left = 0;
+
+    if (n <= 0) {
+        return n;
+    }
+
+    rb = &s->tls_rlayer.rl_rbuf;
+    if (rb->bf_buf == NULL) {
+        if (!tls_setup_read_buffer(s)) {
+            return -1;
+        }
+    }
+
+    left = rb->bf_left;
+    if (!extend) {
+        /* start with empty packet ... */
+        if (left == 0) {
+            rb->bf_offset = align;
+        } else if (align != 0 && left >= TLS1_RT_HEADER_LENGTH) {
+            /*
+             * check if next packet length is large enough to justify payload
+             * alignment...
+             */
+            pkt = rb->bf_buf + rb->bf_offset;
+            if (pkt[0] == TLS_RT_APPLICATION_DATA
+                && (pkt[3] << 8 | pkt[4]) >= 128) {
+                /*
+                 * Note that even if packet is corrupted and its length field
+                 * is insane, we can only be led to wrong decision about
+                 * whether memmove will occur or not. Header values has no
+                 * effect on memmove arguments and therefore no buffer
+                 * overrun can be triggered.
+                 */
+                memmove(rb->bf_buf + align, pkt, left);
+                rb->bf_offset = align;
+            }
+        }
+        s->tls_rlayer.rl_packet = rb->bf_buf + rb->bf_offset;
+        s->tls_rlayer.rl_packet_length = 0;
+        /* ... now we can act as if 'extend' was set */
+    }
+
+    len = s->tls_rlayer.rl_packet_length;
+    pkt = rb->bf_buf + align;
+    /*
+     * Move any available bytes to front of buffer: 'len' bytes already
+     * pointed to by 'packet', 'left' extra ones at the end
+     */
+    if (s->tls_rlayer.rl_packet != pkt && clearold == 1) {
+        memmove(pkt, s->tls_rlayer.rl_packet, len + left);
+        s->tls_rlayer.rl_packet = pkt;
+        rb->bf_offset = len + align;
+    }
+
+    /* if there is enough in the buffer from a previous read, take some */
+    if (left >= n) {
+        s->tls_rlayer.rl_packet_length += n;
+        rb->bf_left = left - n;
+        rb->bf_offset += n;
+        return (n);
+    }
+
+    /* else we need to read more data */
+
+    if (n > (int)(rb->bf_len - rb->bf_offset)) { /* does not happen */
+        return -1;
+    }
+
+    /* We always act like read_ahead is set for DTLS */
+    if (!s->tls_rlayer.rl_read_ahead ) {
+        /* ignore max parameter */
+        max = n;
+    } else {
+        if (max < n) {
+            max = n;
+        }
+        if (max > (int)(rb->bf_len - rb->bf_offset)) {
+            max = rb->bf_len - rb->bf_offset;
+        }
+    }
+
+    while (left < n) {
+        /*
+         * Now we have len+left bytes at the front of s->s3->rbuf.buf and
+         * need to read in more until we have len+n (up to len+max if
+         * possible)
+         */
+
+        if (s->tls_rbio != NULL) {
+            s->tls_rwstate = TLS_READING;
+            i = FC_BIO_read(s->tls_rbio, pkt + len + left, max - left);
+        } else {
+            i = -1;
+        }
+
+        if (i <= 0) {
+            rb->bf_left = left;
+            return i;
+        }
+        left += i;
+    }
+
+    /* done reading, now the book-keeping */
+    rb->bf_offset += n;
+    rb->bf_left = left - n;
+    s->tls_rlayer.rl_packet_length += n;
+    s->tls_rwstate = TLS_NOTHING;
+    return (n);
 }
 
 /*

@@ -120,6 +120,11 @@ typedef struct record_layer_t {
     /* The number of consecutive empty records we have received */
     fc_u32          rl_empty_record_count;
     int             rl_rstate;
+    /*
+     * Read as many input bytes as possible (for
+     * non-blocking reads)
+     */
+    int             rl_read_ahead;
     /* number bytes written */
     int             rl_wpend_tot;
     int             rl_wpend_type;
