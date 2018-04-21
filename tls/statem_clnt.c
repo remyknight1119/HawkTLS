@@ -1,6 +1,7 @@
 #include <string.h>
 
 #include <falcontls/types.h>
+#include <fc_assert.h>
 #include <fc_log.h>
 
 #include "statem.h"
@@ -8,29 +9,274 @@
 #include "packet.h"
 #include "record_locl.h"
 #include "tls_locl.h"
+#include "tls1.h"
 #include "statem_locl.h"
+
+typedef MSG_PROCESS_RETURN (*TLS_CLNT_PROC_F)(TLS *, PACKET *);
+
+typedef struct tls_client_process_t {
+    TLS_HANDSHAKE_STATE     pc_hand_state;
+    TLS_CLNT_PROC_F         pc_proc;
+} CLIENT_PROCESS;
+
+static MSG_PROCESS_RETURN tls_process_server_hello(TLS *s, PACKET *pkt);
+
+static const CLIENT_PROCESS tls_statem_client_process[] = {
+    {
+        .pc_hand_state = TLS_ST_CR_SRVR_HELLO,
+        .pc_proc = tls_process_server_hello,
+    },
+};
+
+#define TLS_CLIENT_PROCESS_NUM  FC_ARRAY_SIZE(tls_statem_client_process)
+
+static TLS_CLNT_PROC_F tls_statem_client_proc_func[TLS_ST_SW_MAX];
+
+void
+tls_statem_client_init(void)
+{
+    TLS_HANDSHAKE_STATE     state = 0;
+    int                     i = 0;
+
+    for (i = 0; i < TLS_CLIENT_PROCESS_NUM; i++) {
+        state = tls_statem_client_process[i].pc_hand_state;
+        if (state >= TLS_ST_SW_MAX) {
+            FC_LOG("State(%d) init failed\n", state);
+            continue;
+        }
+        tls_statem_client_proc_func[state] =
+            tls_statem_client_process[i].pc_proc;
+    }
+}
 
 int
 tls_statem_client_read_transition(TLS *s, int mt)
 {
-    return 1;
+    TLS_STATEM  *st = &s->tls_statem;
+    //int ske_expected;
+
+    switch (st->sm_hand_state) {
+    case TLS_ST_CW_CLNT_HELLO:
+        if (mt == TLS1_MT_SERVER_HELLO) {
+            st->sm_hand_state = TLS_ST_CR_SRVR_HELLO;
+            return 1;
+        }
+
+        break;
+
+    case TLS_ST_CR_SRVR_HELLO:
+#if 0
+        if (s->hit) {
+            if (s->tlsext_ticket_expected) {
+                if (mt == TLS1_MT_NEWSESSION_TICKET) {
+                    st->sm_hand_state = TLS_ST_CR_SESSION_TICKET;
+                    return 1;
+                }
+            } else if (mt == TLS1_MT_CHANGE_CIPHER_SPEC) {
+                st->sm_hand_state = TLS_ST_CR_CHANGE;
+                return 1;
+            }
+        } else {
+            if (SSL_IS_DTLS(s) && mt == DTLS1_MT_HELLO_VERIFY_REQUEST) {
+                st->sm_hand_state = DTLS_ST_CR_HELLO_VERIFY_REQUEST;
+                return 1;
+            } else if (s->version >= TLS1_VERSION
+                       && s->tls_session_secret_cb != NULL
+                       && s->session->tlsext_tick != NULL
+                       && mt == TLS1_MT_CHANGE_CIPHER_SPEC) {
+                /*
+                 * Normally, we can tell if the server is resuming the session
+                 * from the session ID. EAP-FAST (RFC 4851), however, relies on
+                 * the next server message after the ServerHello to determine if
+                 * the server is resuming.
+                 */
+                s->hit = 1;
+                st->sm_hand_state = TLS_ST_CR_CHANGE;
+                return 1;
+            } else if (!(s->s3->tmp.new_cipher->algorithm_auth
+                         & (SSL_aNULL | SSL_aSRP | SSL_aPSK))) {
+                if (mt == TLS1_MT_CERTIFICATE) {
+                    st->sm_hand_state = TLS_ST_CR_CERT;
+                    return 1;
+                }
+            } else {
+                ske_expected = key_exchange_expected(s);
+                /* SKE is optional for some PSK ciphersuites */
+                if (ske_expected
+                    || ((s->s3->tmp.new_cipher->algorithm_mkey & SSL_PSK)
+                        && mt == TLS1_MT_SERVER_KEY_EXCHANGE)) {
+                    if (mt == TLS1_MT_SERVER_KEY_EXCHANGE) {
+                        st->sm_hand_state = TLS_ST_CR_KEY_EXCH;
+                        return 1;
+                    }
+                } else if (mt == TLS1_MT_CERTIFICATE_REQUEST
+                           && cert_req_allowed(s)) {
+                    st->sm_hand_state = TLS_ST_CR_CERT_REQ;
+                    return 1;
+                } else if (mt == TLS1_MT_SERVER_DONE) {
+                    st->sm_hand_state = TLS_ST_CR_SRVR_DONE;
+                    return 1;
+                }
+            }
+        }
+#endif
+        break;
+
+    case TLS_ST_CR_CERT:
+#if 0
+        /*
+         * The CertificateStatus message is optional even if
+         * |tlsext_status_expected| is set
+         */
+        if (s->tlsext_status_expected && mt == TLS1_MT_CERTIFICATE_STATUS) {
+            st->sm_hand_state = TLS_ST_CR_CERT_STATUS;
+            return 1;
+        }
+#endif
+        /* Fall through */
+
+    case TLS_ST_CR_CERT_STATUS:
+#if 0
+        ske_expected = key_exchange_expected(s);
+        /* SKE is optional for some PSK ciphersuites */
+        if (ske_expected || ((s->s3->tmp.new_cipher->algorithm_mkey & SSL_PSK)
+                             && mt == TLS1_MT_SERVER_KEY_EXCHANGE)) {
+            if (mt == TLS1_MT_SERVER_KEY_EXCHANGE) {
+                st->sm_hand_state = TLS_ST_CR_KEY_EXCH;
+                return 1;
+            }
+            goto err;
+        }
+#endif
+        /* Fall through */
+
+    case TLS_ST_CR_KEY_EXCH:
+        if (mt == TLS1_MT_CERTIFICATE_REQUEST) {
+#if 0
+            if (cert_req_allowed(s)) {
+                st->sm_hand_state = TLS_ST_CR_CERT_REQ;
+                return 1;
+            }
+#endif
+            goto err;
+        }
+        /* Fall through */
+
+    case TLS_ST_CR_CERT_REQ:
+        if (mt == TLS1_MT_SERVER_DONE) {
+            st->sm_hand_state = TLS_ST_CR_SRVR_DONE;
+            return 1;
+        }
+        break;
+
+    case TLS_ST_CW_FINISHED:
+#if 0
+        if (s->tlsext_ticket_expected) {
+            if (mt == TLS1_MT_NEWSESSION_TICKET) {
+                st->sm_hand_state = TLS_ST_CR_SESSION_TICKET;
+                return 1;
+            }
+        } else if (mt == TLS1_MT_CHANGE_CIPHER_SPEC) {
+            st->sm_hand_state = TLS_ST_CR_CHANGE;
+            return 1;
+        }
+#endif
+        break;
+
+    case TLS_ST_CR_SESSION_TICKET:
+        if (mt == TLS1_MT_CHANGE_CIPHER_SPEC) {
+            st->sm_hand_state = TLS_ST_CR_CHANGE;
+            return 1;
+        }
+        break;
+
+    case TLS_ST_CR_CHANGE:
+        if (mt == TLS1_MT_FINISHED) {
+            st->sm_hand_state = TLS_ST_CR_FINISHED;
+            return 1;
+        }
+        break;
+
+    default:
+        break;
+    }
+
+ err:
+    /* No valid transition found */
+    tls_send_alert(s, TLS_AL_FATAL, TLS_AD_UNEXPECTED_MESSAGE);
+    return 0;
 }
 
 MSG_PROCESS_RETURN
 tls_statem_client_process_message(TLS *s, PACKET *pkt)
 {
-    return MSG_PROCESS_ERROR;
+    TLS_STATEM          *st = &s->tls_statem;
+    TLS_CLNT_PROC_F     proc = NULL;
+
+    fc_assert(st->sm_hand_state < TLS_ST_SW_MAX);
+    proc = tls_statem_client_proc_func[st->sm_hand_state];
+    if (proc == NULL) {
+        FC_LOG("Can't process state %d\n", st->sm_hand_state);
+        return MSG_PROCESS_ERROR;
+    }
+
+    return proc(s, pkt);
 }
 
 WORK_STATE
 tls_statem_client_post_process_message(TLS *s, WORK_STATE wst)
 {
+    FC_LOG("in\n");
     return WORK_ERROR;
 }
 
 fc_ulong
 tls_statem_client_max_message_size(TLS *s)
 {
+    TLS_STATEM  *st = &s->tls_statem;
+
+    switch (st->sm_hand_state) {
+    case TLS_ST_CR_SRVR_HELLO:
+        return SERVER_HELLO_MAX_LENGTH;
+
+    case DTLS_ST_CR_HELLO_VERIFY_REQUEST:
+        return HELLO_VERIFY_REQUEST_MAX_LENGTH;
+
+    case TLS_ST_CR_CERT:
+        return s->tls_max_cert_list;
+
+    case TLS_ST_CR_CERT_STATUS:
+        return TLS1_RT_MAX_PLAIN_LENGTH;
+
+    case TLS_ST_CR_KEY_EXCH:
+        return SERVER_KEY_EXCH_MAX_LENGTH;
+
+    case TLS_ST_CR_CERT_REQ:
+        /*
+         * Set to s->max_cert_list for compatibility with previous releases. In
+         * practice these messages can get quite long if servers are configured
+         * to provide a long list of acceptable CAs
+         */
+        return s->tls_max_cert_list;
+
+    case TLS_ST_CR_SRVR_DONE:
+        return SERVER_HELLO_DONE_MAX_LENGTH;
+
+    case TLS_ST_CR_CHANGE:
+        return CCS_MAX_LENGTH;
+
+    case TLS_ST_CR_SESSION_TICKET:
+        return TLS1_RT_MAX_PLAIN_LENGTH;
+
+    case TLS_ST_CR_FINISHED:
+        return FINISHED_MAX_LENGTH;
+
+    default:
+        /* Shouldn't happen */
+        break;
+    }
+
+    FC_LOG("State(%d) error!\n", st->sm_hand_state);
     return 0;
 }
 
@@ -73,6 +319,13 @@ tls_statem_client_post_work(TLS *s, WORK_STATE wst)
     return WORK_FINISHED_CONTINUE;
 }
 
+static MSG_PROCESS_RETURN
+tls_process_server_hello(TLS *s, PACKET *pkt)
+{
+    FC_LOG("error\n");
+    return MSG_PROCESS_ERROR;
+}
+
 static int
 tls_set_client_hello_version(TLS *s)
 {
@@ -113,7 +366,7 @@ tls_cipher_list_to_bytes(TLS *s, FC_STACK_OF(TLS_CIPHER) *sk, fc_u8 *p)
         if (empty_reneg_info_scsv) {
 #if 0
             static TLS_CIPHER scsv = {
-                0, NULL, SSL3_CK_SCSV, 0, 0, 0, 0, 0, 0, 0, 0, 0
+                0, NULL, TLS_CK_SCSV, 0, 0, 0, 0, 0, 0, 0, 0, 0
             };
             j = s->tls_method->md_put_cipher_by_char(&scsv, p);
             p += j;
@@ -122,7 +375,7 @@ tls_cipher_list_to_bytes(TLS *s, FC_STACK_OF(TLS_CIPHER) *sk, fc_u8 *p)
 #if 0
         if (s->mode & SSL_MODE_SEND_FALLBACK_SCSV) {
             static SSL_CIPHER scsv = {
-                0, NULL, SSL3_CK_FALLBACK_SCSV, 0, 0, 0, 0, 0, 0, 0, 0, 0
+                0, NULL, TLS_CK_FALLBACK_SCSV, 0, 0, 0, 0, 0, 0, 0, 0, 0
             };
             j = s->method->put_cipher_by_char(&scsv, p);
             p += j;
@@ -224,9 +477,9 @@ tls_construct_client_hello(TLS *s)
         goto err;
     }
     if ((p =
-         ssl_add_clienthello_tlsext(s, p, buf + SSL3_RT_MAX_PLAIN_LENGTH,
+         ssl_add_clienthello_tlsext(s, p, buf + TLS_RT_MAX_PLAIN_LENGTH,
                                     &al)) == NULL) {
-        ssl3_send_alert(s, SSL3_AL_FATAL, al);
+        ssl3_send_alert(s, TLS_AL_FATAL, al);
         SSLerr(SSL_F_TLS_CONSTRUCT_CLIENT_HELLO, ERR_R_INTERNAL_ERROR);
         goto err;
     }

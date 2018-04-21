@@ -159,6 +159,7 @@ struct fc_tls_t {
     fc_u32                      tls_split_send_fragment;
     fc_u32                      tls_max_pipelines;
     TLS_RWSTATE                 tls_rwstate;
+    long                        tls_max_cert_list;
     int                         tls_version;
     int                         tls_fd;
     int                         tls_hit;                    /* reusing a previous session */

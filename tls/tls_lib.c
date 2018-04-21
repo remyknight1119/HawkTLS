@@ -6,6 +6,7 @@
 #include <fc_log.h>
 
 #include "tls_locl.h"
+#include "statem_locl.h"
 
 
 TLS_CTX *
@@ -387,6 +388,7 @@ FCTLS_shutdown(TLS *s)
 int
 FCTLS_init(void)
 {
+    tls_statem_init();
     return 1;
 }
 

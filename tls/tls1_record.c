@@ -33,12 +33,14 @@ tls1_read_n(TLS *s, int n, int max, int extend, int clearold)
     int             left = 0;
 
     if (n <= 0) {
+        FC_LOG("Error: n = %d\n", n);
         return n;
     }
 
     rb = &s->tls_rlayer.rl_rbuf;
     if (rb->bf_buf == NULL) {
         if (!tls_setup_read_buffer(s)) {
+            FC_LOG("Setup read buffer failed!\n");
             return -1;
         }
     }
@@ -95,6 +97,7 @@ tls1_read_n(TLS *s, int n, int max, int extend, int clearold)
     /* else we need to read more data */
 
     if (n > (int)(rb->bf_len - rb->bf_offset)) { /* does not happen */
+        FC_LOG("No more data to be read!\n");
         return -1;
     }
 
@@ -127,6 +130,7 @@ tls1_read_n(TLS *s, int n, int max, int extend, int clearold)
 
         if (i <= 0) {
             rb->bf_left = left;
+            FC_LOG("BIO read failed, i = %d!\n", i);
             return i;
         }
         left += i;
@@ -137,6 +141,7 @@ tls1_read_n(TLS *s, int n, int max, int extend, int clearold)
     rb->bf_left = left - n;
     s->tls_rlayer.rl_packet_length += n;
     s->tls_rwstate = TLS_NOTHING;
+            FC_LOG("read = %d!\n", n);
     return (n);
 }
 

@@ -77,13 +77,13 @@ sock_free(FC_BIO *a)
 static int
 sock_read(FC_BIO *b, char *out, int outl)
 {
-    return recv(b->b_num, out, outl, MSG_DONTWAIT);
+    return recv(b->b_num, out, outl, 0);
 }
 
 static int
 sock_write(FC_BIO *b, const char *in, int inl)
 {
-    return send(b->b_num, in, inl, MSG_DONTWAIT);
+    return send(b->b_num, in, inl, 0);
 }
 
 static long

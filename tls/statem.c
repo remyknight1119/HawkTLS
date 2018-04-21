@@ -113,6 +113,7 @@ read_state_machine(TLS *s)
 
             if (ret == 0) {
                 /* Could be non-blocking IO */
+                FC_LOG("Get message header failed!\n");
                 return SUB_STATE_ERROR;
             }
 
@@ -121,11 +122,14 @@ read_state_machine(TLS *s)
              * to that state if so
              */
             if (!transition(s, mt)) {
+                FC_LOG("Transition failed!\n");
                 return SUB_STATE_ERROR;
             }
 
             if (s->tls_tmp.tm_message_size > max_message_size(s)) {
                 tls_send_alert(s, TLS_AL_FATAL, TLS_AD_ILLEGAL_PARAMETER);
+                FC_LOG("Size too big(message_size = %lu, max_size = %lu)!\n",
+                        s->tls_tmp.tm_message_size, max_message_size(s));
                 return SUB_STATE_ERROR;
             }
 
@@ -133,6 +137,7 @@ read_state_machine(TLS *s)
                     && !grow_init_buf(s, s->tls_tmp.tm_message_size
                                          + TLS_HM_HEADER_LENGTH)) {
                 tls_send_alert(s, TLS_AL_FATAL, TLS_AD_INTERNAL_ERROR);
+                FC_LOG("Grow buffer failed!\n");
                 return SUB_STATE_ERROR;
             }
 
@@ -142,12 +147,14 @@ read_state_machine(TLS *s)
         case READ_STATE_BODY:
             ret = tls_get_message_body(s, &len);
             if (ret == 0) {
+                FC_LOG("Get message body failed!\n");
                 return SUB_STATE_ERROR;
             }
 
             s->tls_first_packet = 0;
             if (!PACKET_buf_init(&pkt, s->tls_init_msg, len)) {
                 tls_send_alert(s, TLS_AL_FATAL, TLS_AD_INTERNAL_ERROR);
+                FC_LOG("Init paket buffer failed!\n");
                 return SUB_STATE_ERROR;
             }
             ret = process_message(s, &pkt);
@@ -157,6 +164,7 @@ read_state_machine(TLS *s)
 
             switch (ret) {
             case MSG_PROCESS_ERROR:
+                FC_LOG("MSG_PROCESS_ERROR\n");
                 return SUB_STATE_ERROR;
 
             case MSG_PROCESS_FINISHED_READING:
@@ -185,6 +193,7 @@ read_state_machine(TLS *s)
                 return SUB_STATE_FINISHED;
 
             default:
+                FC_LOG("READ STATE POST PROCESS failed!\n");
                 return SUB_STATE_ERROR;
             }
             break;
@@ -428,5 +437,11 @@ int
 tls_statem_get_in_handshake(TLS *s)
 {
     return s->tls_statem.sm_in_handshake; 
+}
+
+void
+tls_statem_init(void)
+{
+    tls_statem_client_init();
 }
 
