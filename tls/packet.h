@@ -69,6 +69,33 @@ static inline void PACKET_null_init(PACKET *pkt)
     pkt->pk_remaining = 0;
 }
 
+/*
+ * Peek ahead at 2 bytes in network order from |pkt| and store the value in
+ * |*data|
+ */
+static inline int PACKET_peek_net_2(const PACKET *pkt, fc_u32 *data)
+{
+    if (PACKET_remaining(pkt) < 2) {
+        return 0;
+    }
 
+    *data = ((fc_u32)(*pkt->pk_curr)) << 8;
+    *data |= *(pkt->pk_curr + 1);
+
+    return 1;
+}
+
+/* Equivalent of n2s */
+/* Get 2 bytes in network order from |pkt| and store the value in |*data| */
+static inline int PACKET_get_net_2(PACKET *pkt, fc_u32 *data)
+{
+    if (!PACKET_peek_net_2(pkt, data)) {
+        return 0;
+    }
+
+    packet_forward(pkt, 2);
+
+    return 1;
+}
 
 #endif

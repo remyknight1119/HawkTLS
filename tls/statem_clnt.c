@@ -77,7 +77,7 @@ tls_statem_client_read_transition(TLS *s, int mt)
                 return 1;
             }
         } else {
-            if (SSL_IS_DTLS(s) && mt == DTLS1_MT_HELLO_VERIFY_REQUEST) {
+            if (TLS_IS_DTLS(s) && mt == DTLS1_MT_HELLO_VERIFY_REQUEST) {
                 st->sm_hand_state = DTLS_ST_CR_HELLO_VERIFY_REQUEST;
                 return 1;
             } else if (s->version >= TLS1_VERSION
@@ -94,7 +94,7 @@ tls_statem_client_read_transition(TLS *s, int mt)
                 st->sm_hand_state = TLS_ST_CR_CHANGE;
                 return 1;
             } else if (!(s->s3->tmp.new_cipher->algorithm_auth
-                         & (SSL_aNULL | SSL_aSRP | SSL_aPSK))) {
+                         & (TLS_aNULL | TLS_aSRP | TLS_aPSK))) {
                 if (mt == TLS1_MT_CERTIFICATE) {
                     st->sm_hand_state = TLS_ST_CR_CERT;
                     return 1;
@@ -103,7 +103,7 @@ tls_statem_client_read_transition(TLS *s, int mt)
                 ske_expected = key_exchange_expected(s);
                 /* SKE is optional for some PSK ciphersuites */
                 if (ske_expected
-                    || ((s->s3->tmp.new_cipher->algorithm_mkey & SSL_PSK)
+                    || ((s->s3->tmp.new_cipher->algorithm_mkey & TLS_PSK)
                         && mt == TLS1_MT_SERVER_KEY_EXCHANGE)) {
                     if (mt == TLS1_MT_SERVER_KEY_EXCHANGE) {
                         st->sm_hand_state = TLS_ST_CR_KEY_EXCH;
@@ -139,7 +139,7 @@ tls_statem_client_read_transition(TLS *s, int mt)
 #if 0
         ske_expected = key_exchange_expected(s);
         /* SKE is optional for some PSK ciphersuites */
-        if (ske_expected || ((s->s3->tmp.new_cipher->algorithm_mkey & SSL_PSK)
+        if (ske_expected || ((s->s3->tmp.new_cipher->algorithm_mkey & TLS_PSK)
                              && mt == TLS1_MT_SERVER_KEY_EXCHANGE)) {
             if (mt == TLS1_MT_SERVER_KEY_EXCHANGE) {
                 st->sm_hand_state = TLS_ST_CR_KEY_EXCH;
@@ -322,7 +322,184 @@ tls_statem_client_post_work(TLS *s, WORK_STATE wst)
 static MSG_PROCESS_RETURN
 tls_process_server_hello(TLS *s, PACKET *pkt)
 {
-    FC_LOG("error\n");
+    STACK_OF(TLS_CIPHER)    *sk = NULL;
+    const TLS_CIPHER        *c = NULL;
+    const fc_u8             *cipherchars = NULL;
+    PACKET                  session_id;
+    size_t                  session_id_len = 0;
+    fc_u32                  sversion = 0;
+    int                     i = 0;
+    int                     al = TLS_AD_INTERNAL_ERROR;
+    int                     protverr = 0;
+
+    if (!PACKET_get_net_2(pkt, &sversion)) {
+        al = TLS_AD_DECODE_ERROR;
+        goto f_err;
+    }
+
+    protverr = tls_choose_client_version(s, sversion);
+    if (protverr != 0) {
+        al = TLS_AD_PROTOCOL_VERSION;
+        goto f_err;
+    }
+
+    /* load the server hello data */
+    /* load the server random */
+    if (!PACKET_copy_bytes(pkt, s->s3->server_random, SSL3_RANDOM_SIZE)) {
+        al = TLS_AD_DECODE_ERROR;
+        goto f_err;
+    }
+
+    s->hit = 0;
+
+    /* Get the session-id. */
+    if (!PACKET_get_length_prefixed_1(pkt, &session_id)) {
+        al = TLS_AD_DECODE_ERROR;
+        goto f_err;
+    }
+    session_id_len = PACKET_remaining(&session_id);
+    if (session_id_len > sizeof s->session->session_id
+        || session_id_len > SSL3_SESSION_ID_SIZE) {
+        al = TLS_AD_ILLEGAL_PARAMETER;
+        goto f_err;
+    }
+
+    if (!PACKET_get_bytes(pkt, &cipherchars, TLS_CIPHER_LEN)) {
+        al = TLS_AD_DECODE_ERROR;
+        goto f_err;
+    }
+
+    /*
+     * Check if we can resume the session based on external pre-shared secret.
+     * EAP-FAST (RFC 4851) supports two types of session resumption.
+     * Resumption based on server-side state works with session IDs.
+     * Resumption based on pre-shared Protected Access Credentials (PACs)
+     * works by overriding the SessionTicket extension at the application
+     * layer, and does not send a session ID. (We do not know whether EAP-FAST
+     * servers would honour the session ID.) Therefore, the session ID alone
+     * is not a reliable indicator of session resumption, so we first check if
+     * we can resume, and later peek at the next handshake message to see if the
+     * server wants to resume.
+     */
+    if (s->version >= TLS1_VERSION && s->tls_session_secret_cb &&
+        s->session->tlsext_tick) {
+        const TLS_CIPHER *pref_cipher = NULL;
+        s->session->master_key_length = sizeof(s->session->master_key);
+        if (s->tls_session_secret_cb(s, s->session->master_key,
+                                     &s->session->master_key_length,
+                                     NULL, &pref_cipher,
+                                     s->tls_session_secret_cb_arg)) {
+            s->session->cipher = pref_cipher ?
+                pref_cipher : ssl_get_cipher_by_char(s, cipherchars);
+        } else {
+            SSLerr(TLS_F_TLS_PROCESS_SERVER_HELLO, ERR_R_INTERNAL_ERROR);
+            al = TLS_AD_INTERNAL_ERROR;
+            goto f_err;
+        }
+    }
+
+    if (session_id_len != 0 && session_id_len == s->session->session_id_length
+        && memcmp(PACKET_data(&session_id), s->session->session_id,
+                  session_id_len) == 0) {
+        if (s->sid_ctx_length != s->session->sid_ctx_length
+            || memcmp(s->session->sid_ctx, s->sid_ctx, s->sid_ctx_length)) {
+            /* actually a client application bug */
+            al = TLS_AD_ILLEGAL_PARAMETER;
+            goto f_err;
+        }
+        s->hit = 1;
+    } else {
+        /*
+         * If we were trying for session-id reuse but the server
+         * didn't echo the ID, make a new TLS_SESSION.
+         * In the case of EAP-FAST and PAC, we do not send a session ID,
+         * so the PAC-based session secret is always preserved. It'll be
+         * overwritten if the server refuses resumption.
+         */
+        if (s->session->session_id_length > 0) {
+            s->ctx->stats.sess_miss++;
+            if (!ssl_get_new_session(s, 0)) {
+                goto f_err;
+            }
+        }
+
+        s->session->ssl_version = s->version;
+        s->session->session_id_length = session_id_len;
+        /* session_id_len could be 0 */
+        if (session_id_len > 0)
+            memcpy(s->session->session_id, PACKET_data(&session_id),
+                   session_id_len);
+    }
+
+    /* Session version and negotiated protocol version should match */
+    if (s->version != s->session->ssl_version) {
+        al = TLS_AD_PROTOCOL_VERSION;
+        goto f_err;
+    }
+
+    c = ssl_get_cipher_by_char(s, cipherchars);
+    if (c == NULL) {
+        /* unknown cipher */
+        al = TLS_AD_ILLEGAL_PARAMETER;
+        goto f_err;
+    }
+    /*
+     * Now that we know the version, update the check to see if it's an allowed
+     * version.
+     */
+    s->s3->tmp.min_ver = s->version;
+    s->s3->tmp.max_ver = s->version;
+    /*
+     * If it is a disabled cipher we either didn't send it in client hello,
+     * or it's not allowed for the selected protocol. So we return an error.
+     */
+    if (ssl_cipher_disabled(s, c, TLS_SECOP_CIPHER_CHECK, 1)) {
+        al = TLS_AD_ILLEGAL_PARAMETER;
+        goto f_err;
+    }
+
+    sk = ssl_get_ciphers_by_id(s);
+    i = sk_TLS_CIPHER_find(sk, c);
+    if (i < 0) {
+        /* we did not say we would use this cipher */
+        al = TLS_AD_ILLEGAL_PARAMETER;
+        goto f_err;
+    }
+
+    /*
+     * Depending on the session caching (internal/external), the cipher
+     * and/or cipher_id values may not be set. Make sure that cipher_id is
+     * set and use it for comparison.
+     */
+    if (s->session->cipher)
+        s->session->cipher_id = s->session->cipher->id;
+    if (s->hit && (s->session->cipher_id != c->id)) {
+        al = TLS_AD_ILLEGAL_PARAMETER;
+        goto f_err;
+    }
+    s->s3->tmp.new_cipher = c;
+    /* lets get the compression algorithm */
+    /* COMPRESSION */
+    if (!PACKET_get_1(pkt, &compression)) {
+        al = TLS_AD_DECODE_ERROR;
+        goto f_err;
+    }
+
+    /* TLS extensions */
+    if (!ssl_parse_serverhello_tlsext(s, pkt)) {
+        goto err;
+    }
+
+    if (PACKET_remaining(pkt) != 0) {
+        /* wrong packet length */
+        al = TLS_AD_DECODE_ERROR;
+        goto f_err;
+    }
+
+    return MSG_PROCESS_CONTINUE_READING;
+f_err:
+    tls_send_alert(s, TLS_AL_FATAL, al);
+//err:
     return MSG_PROCESS_ERROR;
 }
 
@@ -352,7 +529,7 @@ tls_cipher_list_to_bytes(TLS *s, FC_STACK_OF(TLS_CIPHER) *sk, fc_u8 *p)
     for (i = 0; i < sk_TLS_CIPHER_num(sk); i++) {
         c = sk_TLS_CIPHER_value(sk, i);
         /* Skip disabled ciphers */
-        if (tls_cipher_disabled(s, c, 0/*SSL_SECOP_CIPHER_SUPPORTED*/, 0)) {
+        if (tls_cipher_disabled(s, c, 0/*TLS_SECOP_CIPHER_SUPPORTED*/, 0)) {
             continue;
         }
         j = s->tls_method->md_put_cipher_by_char(c, p);
@@ -373,8 +550,8 @@ tls_cipher_list_to_bytes(TLS *s, FC_STACK_OF(TLS_CIPHER) *sk, fc_u8 *p)
 #endif
         }
 #if 0
-        if (s->mode & SSL_MODE_SEND_FALLBACK_SCSV) {
-            static SSL_CIPHER scsv = {
+        if (s->mode & TLS_MODE_SEND_FALLBACK_SCSV) {
+            static TLS_CIPHER scsv = {
                 0, NULL, TLS_CK_FALLBACK_SCSV, 0, 0, 0, 0, 0, 0, 0, 0, 0
             };
             j = s->method->put_cipher_by_char(&scsv, p);
@@ -461,8 +638,8 @@ tls_construct_client_hello(TLS *s)
      * use TLS v1.2
      */
     if (TLS1_get_version(s) >= TLS1_2_VERSION
-        && i > OPENSSL_MAX_TLS1_2_CIPHER_LENGTH)
-        i = OPENSSL_MAX_TLS1_2_CIPHER_LENGTH & ~1;
+        && i > OPENTLS_MAX_TLS1_2_CIPHER_LENGTH)
+        i = OPENTLS_MAX_TLS1_2_CIPHER_LENGTH & ~1;
 #endif
     s2n(i, p);
     p += i;
@@ -473,14 +650,12 @@ tls_construct_client_hello(TLS *s)
 #if 0
     /* TLS extensions */
     if (ssl_prepare_clienthello_tlsext(s) <= 0) {
-        SSLerr(SSL_F_TLS_CONSTRUCT_CLIENT_HELLO, SSL_R_CLIENTHELLO_TLSEXT);
         goto err;
     }
     if ((p =
          ssl_add_clienthello_tlsext(s, p, buf + TLS_RT_MAX_PLAIN_LENGTH,
                                     &al)) == NULL) {
-        ssl3_send_alert(s, TLS_AL_FATAL, al);
-        SSLerr(SSL_F_TLS_CONSTRUCT_CLIENT_HELLO, ERR_R_INTERNAL_ERROR);
+        tls_send_alert(s, TLS_AL_FATAL, al);
         goto err;
     }
 #endif
