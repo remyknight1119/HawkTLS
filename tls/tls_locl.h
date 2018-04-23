@@ -12,6 +12,8 @@
 #include "tls1_2.h"
 
 #define TLS_RANDOM_SIZE                     32
+#define TLS_SESSION_ID_SIZE                 32
+#define TLS_MASTER_SECRET_SIZE              48
 #define TLS_HM_HEADER_LENGTH                4
 
 #define TLS_RT_CHANGE_CIPHER_SPEC           20
@@ -203,6 +205,8 @@ struct fc_tls_ctx_t {
     fc_u32                      sc_split_send_fragment;
     fc_u32                      sc_max_pipelines;
 }; 
+
+#define TLS_CIPHER_LEN  2
 
 struct tls_cipher_t {
     const char      *cp_name;           /* text name */

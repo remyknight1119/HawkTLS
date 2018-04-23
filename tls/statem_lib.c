@@ -205,4 +205,9 @@ tls_get_message_body(TLS *s, fc_ulong *len)
     return 1;
 }
 
+int 
+tls_choose_client_version(TLS *s, int version)
+{
+    return 0;
+}
 

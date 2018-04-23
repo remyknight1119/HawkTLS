@@ -1,6 +1,7 @@
 #include <string.h>
 
 #include <falcontls/types.h>
+#include <falcontls/safestack.h>
 #include <fc_assert.h>
 #include <fc_log.h>
 
@@ -322,9 +323,10 @@ tls_statem_client_post_work(TLS *s, WORK_STATE wst)
 static MSG_PROCESS_RETURN
 tls_process_server_hello(TLS *s, PACKET *pkt)
 {
-    STACK_OF(TLS_CIPHER)    *sk = NULL;
+    FC_STACK_OF(TLS_CIPHER) *sk = NULL;
     const TLS_CIPHER        *c = NULL;
     const fc_u8             *cipherchars = NULL;
+    TLS_SESSION             *session;
     PACKET                  session_id;
     size_t                  session_id_len = 0;
     fc_u32                  sversion = 0;
@@ -345,21 +347,22 @@ tls_process_server_hello(TLS *s, PACKET *pkt)
 
     /* load the server hello data */
     /* load the server random */
-    if (!PACKET_copy_bytes(pkt, s->s3->server_random, SSL3_RANDOM_SIZE)) {
+    if (!PACKET_copy_bytes(pkt, s->tls1.st_server_random, TLS_RANDOM_SIZE)) {
         al = TLS_AD_DECODE_ERROR;
         goto f_err;
     }
 
-    s->hit = 0;
+    s->tls_hit = 0;
 
     /* Get the session-id. */
     if (!PACKET_get_length_prefixed_1(pkt, &session_id)) {
         al = TLS_AD_DECODE_ERROR;
         goto f_err;
     }
+    session = s->tls_session;
     session_id_len = PACKET_remaining(&session_id);
-    if (session_id_len > sizeof s->session->session_id
-        || session_id_len > SSL3_SESSION_ID_SIZE) {
+    if (session_id_len > sizeof(session->se_session_id)
+        || session_id_len > TLS_SESSION_ID_SIZE) {
         al = TLS_AD_ILLEGAL_PARAMETER;
         goto f_err;
     }
@@ -381,33 +384,33 @@ tls_process_server_hello(TLS *s, PACKET *pkt)
      * we can resume, and later peek at the next handshake message to see if the
      * server wants to resume.
      */
-    if (s->version >= TLS1_VERSION && s->tls_session_secret_cb &&
-        s->session->tlsext_tick) {
-        const TLS_CIPHER *pref_cipher = NULL;
-        s->session->master_key_length = sizeof(s->session->master_key);
+#if 0
+    if (s->tls_session_secret_cb && session->tlsext_tick) {
+        const TLS_CIPHER    *pref_cipher = NULL;
+        session->master_key_length = sizeof(session->se_master_key);
         if (s->tls_session_secret_cb(s, s->session->master_key,
                                      &s->session->master_key_length,
                                      NULL, &pref_cipher,
                                      s->tls_session_secret_cb_arg)) {
-            s->session->cipher = pref_cipher ?
+            session->cipher = pref_cipher ?
                 pref_cipher : ssl_get_cipher_by_char(s, cipherchars);
         } else {
-            SSLerr(TLS_F_TLS_PROCESS_SERVER_HELLO, ERR_R_INTERNAL_ERROR);
             al = TLS_AD_INTERNAL_ERROR;
             goto f_err;
         }
     }
+#endif
 
-    if (session_id_len != 0 && session_id_len == s->session->session_id_length
-        && memcmp(PACKET_data(&session_id), s->session->session_id,
+    if (session_id_len != 0 && session_id_len == session->se_session_id_length
+        && memcmp(PACKET_data(&session_id), session->se_session_id,
                   session_id_len) == 0) {
-        if (s->sid_ctx_length != s->session->sid_ctx_length
-            || memcmp(s->session->sid_ctx, s->sid_ctx, s->sid_ctx_length)) {
+        if (s->sid_ctx_length != session->sid_ctx_length
+            || memcmp(session->sid_ctx, s->sid_ctx, s->sid_ctx_length)) {
             /* actually a client application bug */
             al = TLS_AD_ILLEGAL_PARAMETER;
             goto f_err;
         }
-        s->hit = 1;
+        s->tls_hit = 1;
     } else {
         /*
          * If we were trying for session-id reuse but the server
@@ -416,25 +419,18 @@ tls_process_server_hello(TLS *s, PACKET *pkt)
          * so the PAC-based session secret is always preserved. It'll be
          * overwritten if the server refuses resumption.
          */
-        if (s->session->session_id_length > 0) {
+        if (session->session_id_length > 0) {
             s->ctx->stats.sess_miss++;
             if (!ssl_get_new_session(s, 0)) {
                 goto f_err;
             }
         }
 
-        s->session->ssl_version = s->version;
-        s->session->session_id_length = session_id_len;
+        session->session_id_length = session_id_len;
         /* session_id_len could be 0 */
         if (session_id_len > 0)
-            memcpy(s->session->session_id, PACKET_data(&session_id),
+            memcpy(session->session_id, PACKET_data(&session_id),
                    session_id_len);
-    }
-
-    /* Session version and negotiated protocol version should match */
-    if (s->version != s->session->ssl_version) {
-        al = TLS_AD_PROTOCOL_VERSION;
-        goto f_err;
     }
 
     c = ssl_get_cipher_by_char(s, cipherchars);
@@ -443,12 +439,7 @@ tls_process_server_hello(TLS *s, PACKET *pkt)
         al = TLS_AD_ILLEGAL_PARAMETER;
         goto f_err;
     }
-    /*
-     * Now that we know the version, update the check to see if it's an allowed
-     * version.
-     */
-    s->s3->tmp.min_ver = s->version;
-    s->s3->tmp.max_ver = s->version;
+
     /*
      * If it is a disabled cipher we either didn't send it in client hello,
      * or it's not allowed for the selected protocol. So we return an error.
@@ -471,9 +462,10 @@ tls_process_server_hello(TLS *s, PACKET *pkt)
      * and/or cipher_id values may not be set. Make sure that cipher_id is
      * set and use it for comparison.
      */
-    if (s->session->cipher)
-        s->session->cipher_id = s->session->cipher->id;
-    if (s->hit && (s->session->cipher_id != c->id)) {
+    if (session->cipher) {
+        session->cipher_id = session->cipher->id;
+    }
+    if (s->tls_hit && (session->cipher_id != c->id)) {
         al = TLS_AD_ILLEGAL_PARAMETER;
         goto f_err;
     }
@@ -499,7 +491,7 @@ tls_process_server_hello(TLS *s, PACKET *pkt)
     return MSG_PROCESS_CONTINUE_READING;
 f_err:
     tls_send_alert(s, TLS_AL_FATAL, al);
-//err:
+err:
     return MSG_PROCESS_ERROR;
 }
 
