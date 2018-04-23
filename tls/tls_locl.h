@@ -10,6 +10,7 @@
 #include "statem.h"
 #include "record_locl.h"
 #include "tls1_2.h"
+#include "packet.h"
 
 #define TLS_RANDOM_SIZE                     32
 #define TLS_SESSION_ID_SIZE                 32
@@ -134,6 +135,10 @@ typedef struct tls_session_t {
     fc_u32                  se_flags;
     fc_u32                  se_session_id_length;
     fc_u8                   se_session_id[FC_TLS_MAX_SESSION_ID_LENGTH];
+    fc_u32                  se_sid_ctx_length;
+    fc_u8                   se_sid_ctx[FC_TLS_MAX_SID_CTX_LENGTH];
+    fc_ulong                se_cipher_id;
+    const TLS_CIPHER        *se_cipher;
     FC_STACK_OF(TLS_CIPHER) *se_ciphers;
 } TLS_SESSION;
 
@@ -150,6 +155,7 @@ struct fc_tls_t {
     TLS_SESSION                 *tls_session;
     FC_EVP_CIPHER_CTX           *tls_enc_write_ctx;
     FC_STACK_OF(TLS_CIPHER)     *tls_cipher_list;
+    FC_STACK_OF(TLS_CIPHER)     *tls_cipher_list_by_id;
     FC_EVP_CIPHER_CTX           *tls_enc_read_ctx; /* cryptographic state */
     FC_EVP_MD_CTX               *tls_read_hash;      /* used for mac generation */
     int                         (*tls_handshake_func)(TLS *);
@@ -160,6 +166,8 @@ struct fc_tls_t {
     fc_u32                      tls_max_send_fragment;
     fc_u32                      tls_split_send_fragment;
     fc_u32                      tls_max_pipelines;
+    fc_u32                      tls_sid_ctx_length;
+    fc_u8                       tls_sid_ctx[FC_TLS_MAX_SID_CTX_LENGTH];
     TLS_RWSTATE                 tls_rwstate;
     long                        tls_max_cert_list;
     int                         tls_version;
@@ -174,6 +182,7 @@ struct fc_tls_t {
     struct {
         fc_ulong                tm_message_size;
         int                     tm_message_type;
+        const TLS_CIPHER        *tm_new_cipher;
     } tls_tmp;
 };
 
@@ -204,6 +213,8 @@ struct fc_tls_ctx_t {
     fc_u32                      sc_max_send_fragment;
     fc_u32                      sc_split_send_fragment;
     fc_u32                      sc_max_pipelines;
+    fc_u32                      sc_sid_ctx_length;
+    fc_u8                       sc_sid_ctx[FC_TLS_MAX_SID_CTX_LENGTH];
 }; 
 
 #define TLS_CIPHER_LEN  2
@@ -310,6 +321,11 @@ FC_STACK_OF(TLS_CIPHER) *tls_create_cipher_list(const TLS_METHOD *meth,
 int tls_cipher_disabled(TLS *s, const TLS_CIPHER *c, int op, int ecdhe);
 int tls_cipher_ptr_id_cmp(const TLS_CIPHER *const *ap, const TLS_CIPHER *
                             const *bp);
+const TLS_CIPHER *tls_get_cipher_by_char(TLS *s, const fc_u8 *ptr);
 
+#define TLS_CIPHER_find tls_get_cipher_by_char
+
+int tls_parse_serverhello_tlsext(TLS *s, PACKET *pkt);
+FC_STACK_OF(TLS_CIPHER) *tls_get_ciphers_by_id(TLS *s);
 
 #endif

@@ -330,6 +330,7 @@ tls_process_server_hello(TLS *s, PACKET *pkt)
     PACKET                  session_id;
     size_t                  session_id_len = 0;
     fc_u32                  sversion = 0;
+    fc_u32                  compression = 0;
     int                     i = 0;
     int                     al = TLS_AD_INTERNAL_ERROR;
     int                     protverr = 0;
@@ -404,8 +405,9 @@ tls_process_server_hello(TLS *s, PACKET *pkt)
     if (session_id_len != 0 && session_id_len == session->se_session_id_length
         && memcmp(PACKET_data(&session_id), session->se_session_id,
                   session_id_len) == 0) {
-        if (s->sid_ctx_length != session->sid_ctx_length
-            || memcmp(session->sid_ctx, s->sid_ctx, s->sid_ctx_length)) {
+        if (s->tls_sid_ctx_length != session->se_sid_ctx_length
+            || memcmp(session->se_sid_ctx, s->tls_sid_ctx,
+                s->tls_sid_ctx_length)) {
             /* actually a client application bug */
             al = TLS_AD_ILLEGAL_PARAMETER;
             goto f_err;
@@ -419,37 +421,31 @@ tls_process_server_hello(TLS *s, PACKET *pkt)
          * so the PAC-based session secret is always preserved. It'll be
          * overwritten if the server refuses resumption.
          */
-        if (session->session_id_length > 0) {
-            s->ctx->stats.sess_miss++;
-            if (!ssl_get_new_session(s, 0)) {
+        if (session->se_session_id_length > 0) {
+            if (!tls_get_new_session(s, 0)) {
                 goto f_err;
             }
         }
 
-        session->session_id_length = session_id_len;
+        session->se_session_id_length = session_id_len;
         /* session_id_len could be 0 */
         if (session_id_len > 0)
-            memcpy(session->session_id, PACKET_data(&session_id),
+            memcpy(session->se_session_id, PACKET_data(&session_id),
                    session_id_len);
     }
 
-    c = ssl_get_cipher_by_char(s, cipherchars);
+    c = tls_get_cipher_by_char(s, cipherchars);
     if (c == NULL) {
         /* unknown cipher */
         al = TLS_AD_ILLEGAL_PARAMETER;
         goto f_err;
     }
 
-    /*
-     * If it is a disabled cipher we either didn't send it in client hello,
-     * or it's not allowed for the selected protocol. So we return an error.
-     */
-    if (ssl_cipher_disabled(s, c, TLS_SECOP_CIPHER_CHECK, 1)) {
+    if (tls_cipher_disabled(s, c, 0/*SSL_SECOP_CIPHER_CHECK*/, 1)) {
         al = TLS_AD_ILLEGAL_PARAMETER;
         goto f_err;
     }
-
-    sk = ssl_get_ciphers_by_id(s);
+    sk = tls_get_ciphers_by_id(s);
     i = sk_TLS_CIPHER_find(sk, c);
     if (i < 0) {
         /* we did not say we would use this cipher */
@@ -462,14 +458,14 @@ tls_process_server_hello(TLS *s, PACKET *pkt)
      * and/or cipher_id values may not be set. Make sure that cipher_id is
      * set and use it for comparison.
      */
-    if (session->cipher) {
-        session->cipher_id = session->cipher->id;
+    if (session->se_cipher) {
+        session->se_cipher_id = session->se_cipher->cp_id;
     }
-    if (s->tls_hit && (session->cipher_id != c->id)) {
+    if (s->tls_hit && (session->se_cipher_id != c->cp_id)) {
         al = TLS_AD_ILLEGAL_PARAMETER;
         goto f_err;
     }
-    s->s3->tmp.new_cipher = c;
+    s->tls_tmp.tm_new_cipher = c;
     /* lets get the compression algorithm */
     /* COMPRESSION */
     if (!PACKET_get_1(pkt, &compression)) {
@@ -477,8 +473,12 @@ tls_process_server_hello(TLS *s, PACKET *pkt)
         goto f_err;
     }
 
+    if (compression != 0) {
+        al = TLS_AD_ILLEGAL_PARAMETER;
+        goto f_err;
+    }
     /* TLS extensions */
-    if (!ssl_parse_serverhello_tlsext(s, pkt)) {
+    if (!tls_parse_serverhello_tlsext(s, pkt)) {
         goto err;
     }
 

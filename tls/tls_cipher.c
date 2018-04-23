@@ -467,3 +467,9 @@ tls_create_cipher_list(const TLS_METHOD *method, FC_STACK_OF(TLS_CIPHER)
     return (cipherstack);
 }
 
+const TLS_CIPHER *
+tls_get_cipher_by_char(TLS *s, const fc_u8 *ptr)
+{
+    return s->tls_method->md_get_cipher_by_char(ptr);
+}
+

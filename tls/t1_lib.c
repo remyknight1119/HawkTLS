@@ -57,3 +57,8 @@ tls_cipher_disabled(TLS *s, const TLS_CIPHER *c, int op, int ecdhe)
     return 0;
 }
 
+int
+tls_parse_serverhello_tlsext(TLS *s, PACKET *pkt)
+{
+    return 1;
+}

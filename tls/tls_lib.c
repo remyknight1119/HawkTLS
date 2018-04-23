@@ -397,4 +397,24 @@ FalconTLS_add_all_algorighms(void)
 {
 }
 
+/** return a STACK of the ciphers available for the SSL and in order of
+ * algorithm id */
+FC_STACK_OF(TLS_CIPHER) *
+tls_get_ciphers_by_id(TLS *s)
+{
+    if (s == NULL) {
+        return NULL;
+    }
+
+    if (s->tls_cipher_list_by_id != NULL) {
+        return (s->tls_cipher_list_by_id);
+    } 
+    
+    if ((s->tls_ctx != NULL) && (s->tls_ctx->sc_cipher_list_by_id != NULL)) {
+        return (s->tls_ctx->sc_cipher_list_by_id);
+    }
+
+    return NULL;
+}
+
 
