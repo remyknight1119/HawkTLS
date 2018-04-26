@@ -8,6 +8,8 @@
 #include "tls1.h"
 #include "tls_locl.h"
 
+#define CIPHER_DEBUG    0
+
 #define CIPHER_ADD      1
 #define CIPHER_KILL     2
 #define CIPHER_DEL      3
@@ -157,10 +159,12 @@ tls_cipher_apply_rule(fc_u32 cipher_id, fc_u32 alg_mkey, fc_u32 alg_auth,
     const TLS_CIPHER    *cp = NULL;
     int                 reverse = 0;
 
+#if CIPHER_DEBUG
     fprintf(stderr,
             "Applying rule %d with %08x/%08x/%08x/%08x/%08x %08x (%d)\n",
             rule, alg_mkey, alg_auth, alg_enc, alg_mac, min_tls,
             algo_strength, strength_bits);
+#endif
 
     if (rule == CIPHER_DEL || rule == CIPHER_BUMP) {
     /* needed to maintain sorting between currently deleted ciphers */
@@ -202,10 +206,12 @@ tls_cipher_apply_rule(fc_u32 cipher_id, fc_u32 alg_mkey, fc_u32 alg_auth,
                 continue;
             }
         } else {
+#if CIPHER_DEBUG
             fprintf(stderr,
                     "\nName: %s:\nAlgo = %08x/%08x/%08x/%08x\n",
                     cp->cp_name, cp->cp_algorithm_mkey, cp->cp_algorithm_auth,
                     cp->cp_algorithm_enc, cp->cp_algorithm_mac);
+#endif
             if (alg_mkey && !(alg_mkey & cp->cp_algorithm_mkey)) {
                 continue;
             }
@@ -220,7 +226,9 @@ tls_cipher_apply_rule(fc_u32 cipher_id, fc_u32 alg_mkey, fc_u32 alg_auth,
             }
         }
 
+#if CIPHER_DEBUG0
         fprintf(stderr, "Action = %d\n", rule);
+#endif
 
         /* add the cipher if it has not been added yet. */
         if (rule == CIPHER_ADD) {
@@ -443,7 +451,9 @@ tls_create_cipher_list(const TLS_METHOD *method, FC_STACK_OF(TLS_CIPHER)
                 FC_LOG("push CIPHER %s failed!\n", curr->cipher->cp_name);
                 return NULL;
             }
+#if CIPHER_DEBUG0
             fprintf(stderr, "<%s>\n", curr->cipher->cp_name);
+#endif
         }
     }
     FALCONTLS_free(co_list);      /* Not needed any longer */

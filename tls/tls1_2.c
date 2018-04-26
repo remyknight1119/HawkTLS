@@ -274,9 +274,20 @@ tls1_2_get_cipher(fc_u32 u)
     return (&(tls1_2_ciphers[TLS1_2_NUM_CIPHERS - 1 - u]));
 }
 
-const TLS_CIPHER *
-OBJ_bsearch_ssl_cipher_id(TLS_CIPHER *c, TLS_CIPHER *tls_cipher, int num)
+static const TLS_CIPHER *
+tls1_2_search_cipher_byid(fc_u32 id)
 {
+    const TLS_CIPHER    *cipher = NULL;
+    int                 i = 0;
+
+    for (i = 0; i < TLS1_2_NUM_CIPHERS; i++) {
+        cipher = &tls1_2_ciphers[i];
+        if (cipher->cp_id == id) {
+            return cipher;
+        }
+    }
+
+    FC_LOG("find cipher failed\n");
     return NULL;
 }
 
@@ -287,14 +298,10 @@ OBJ_bsearch_ssl_cipher_id(TLS_CIPHER *c, TLS_CIPHER *tls_cipher, int num)
 const TLS_CIPHER *
 tls1_2_get_cipher_by_char(const fc_u8 *p)
 {
-    const TLS_CIPHER    *cp = NULL;
-    TLS_CIPHER          c = {};
     fc_u32              id = 0;
 
     id = 0x03000000 | ((fc_u32)p[0] << 8L) | (fc_u32)p[1];
-    c.cp_id = id;
-    cp = OBJ_bsearch_ssl_cipher_id(&c, tls1_2_ciphers, TLS1_2_NUM_CIPHERS);
-    return cp;
+    return tls1_2_search_cipher_byid(id);
 }
 
 int 

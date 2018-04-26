@@ -336,12 +336,14 @@ tls_process_server_hello(TLS *s, PACKET *pkt)
     int                     protverr = 0;
 
     if (!PACKET_get_net_2(pkt, &sversion)) {
+        FC_LOG("Get net 2 failed\n");
         al = TLS_AD_DECODE_ERROR;
         goto f_err;
     }
 
     protverr = tls_choose_client_version(s, sversion);
     if (protverr != 0) {
+        FC_LOG("Choose client version failed\n");
         al = TLS_AD_PROTOCOL_VERSION;
         goto f_err;
     }
@@ -349,6 +351,7 @@ tls_process_server_hello(TLS *s, PACKET *pkt)
     /* load the server hello data */
     /* load the server random */
     if (!PACKET_copy_bytes(pkt, s->tls1.st_server_random, TLS_RANDOM_SIZE)) {
+        FC_LOG("Copy server random failed\n");
         al = TLS_AD_DECODE_ERROR;
         goto f_err;
     }
@@ -357,6 +360,7 @@ tls_process_server_hello(TLS *s, PACKET *pkt)
 
     /* Get the session-id. */
     if (!PACKET_get_length_prefixed_1(pkt, &session_id)) {
+        FC_LOG("Get session id length failed\n");
         al = TLS_AD_DECODE_ERROR;
         goto f_err;
     }
@@ -364,11 +368,13 @@ tls_process_server_hello(TLS *s, PACKET *pkt)
     session_id_len = PACKET_remaining(&session_id);
     if (session_id_len > sizeof(session->se_session_id)
         || session_id_len > TLS_SESSION_ID_SIZE) {
+        FC_LOG("Session id length invalid(%d)\n", session_id_len);
         al = TLS_AD_ILLEGAL_PARAMETER;
         goto f_err;
     }
 
     if (!PACKET_get_bytes(pkt, &cipherchars, TLS_CIPHER_LEN)) {
+        FC_LOG("Get cipher bytes failed\n");
         al = TLS_AD_DECODE_ERROR;
         goto f_err;
     }
@@ -409,6 +415,7 @@ tls_process_server_hello(TLS *s, PACKET *pkt)
             || memcmp(session->se_sid_ctx, s->tls_sid_ctx,
                 s->tls_sid_ctx_length)) {
             /* actually a client application bug */
+            FC_LOG("Session paramter illegal\n");
             al = TLS_AD_ILLEGAL_PARAMETER;
             goto f_err;
         }
@@ -423,6 +430,7 @@ tls_process_server_hello(TLS *s, PACKET *pkt)
          */
         if (session->se_session_id_length > 0) {
             if (!tls_get_new_session(s, 0)) {
+                FC_LOG("Get new session failed\n");
                 goto f_err;
             }
         }
@@ -436,18 +444,21 @@ tls_process_server_hello(TLS *s, PACKET *pkt)
 
     c = tls_get_cipher_by_char(s, cipherchars);
     if (c == NULL) {
+        FC_LOG("Get cipher failed\n");
         /* unknown cipher */
         al = TLS_AD_ILLEGAL_PARAMETER;
         goto f_err;
     }
 
     if (tls_cipher_disabled(s, c, 0/*SSL_SECOP_CIPHER_CHECK*/, 1)) {
+        FC_LOG("Error: cipher disabled\n");
         al = TLS_AD_ILLEGAL_PARAMETER;
         goto f_err;
     }
     sk = tls_get_ciphers_by_id(s);
     i = sk_TLS_CIPHER_find(sk, c);
     if (i < 0) {
+        FC_LOG("Find cipher failed\n");
         /* we did not say we would use this cipher */
         al = TLS_AD_ILLEGAL_PARAMETER;
         goto f_err;
@@ -462,6 +473,7 @@ tls_process_server_hello(TLS *s, PACKET *pkt)
         session->se_cipher_id = session->se_cipher->cp_id;
     }
     if (s->tls_hit && (session->se_cipher_id != c->cp_id)) {
+        FC_LOG("Cipher id not match\n");
         al = TLS_AD_ILLEGAL_PARAMETER;
         goto f_err;
     }
@@ -469,20 +481,24 @@ tls_process_server_hello(TLS *s, PACKET *pkt)
     /* lets get the compression algorithm */
     /* COMPRESSION */
     if (!PACKET_get_1(pkt, &compression)) {
+        FC_LOG("Get compression failed\n");
         al = TLS_AD_DECODE_ERROR;
         goto f_err;
     }
 
     if (compression != 0) {
+        FC_LOG("Compression illegal\n");
         al = TLS_AD_ILLEGAL_PARAMETER;
         goto f_err;
     }
     /* TLS extensions */
     if (!tls_parse_serverhello_tlsext(s, pkt)) {
+        FC_LOG("Parse serverhello tlsext failed\n");
         goto err;
     }
 
     if (PACKET_remaining(pkt) != 0) {
+        FC_LOG("Error: data remaining\n");
         /* wrong packet length */
         al = TLS_AD_DECODE_ERROR;
         goto f_err;

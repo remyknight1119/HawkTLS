@@ -327,5 +327,6 @@ const TLS_CIPHER *tls_get_cipher_by_char(TLS *s, const fc_u8 *ptr);
 
 int tls_parse_serverhello_tlsext(TLS *s, PACKET *pkt);
 FC_STACK_OF(TLS_CIPHER) *tls_get_ciphers_by_id(TLS *s);
+int tls_finish_mac(TLS *s, const fc_u8 *buf, int len);
 
 #endif

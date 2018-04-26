@@ -135,73 +135,48 @@ f_err:
 int
 tls_get_message_body(TLS *s, fc_ulong *len)
 {
-#if 0
-    long n;
-    fc_u8 *p;
-    int i;
+    fc_u8   *p = NULL;
+    long    n = 0;
+    int     i = 0;
 
-    if (s->s3->tmp.message_type == TLS_MT_CHANGE_CIPHER_SPEC) {
+    if (s->tls_tmp.tm_message_type == TLS1_MT_CHANGE_CIPHER_SPEC) {
         /* We've already read everything in */
-        *len = (fc_ulong)s->init_num;
+        *len = (fc_ulong)s->tls_init_num;
         return 1;
     }
 
-    p = s->init_msg;
-    n = s->s3->tmp.message_size - s->init_num;
+    p = s->tls_init_msg;
+    n = s->tls_tmp.tm_message_size - s->tls_init_num;
     while (n > 0) {
-        i = s->method->ssl_read_bytes(s, TLS_RT_HANDSHAKE, NULL,
-                                      &p[s->init_num], n, 0);
+        i = s->tls_method->md_tls_read_bytes(s, TLS_RT_HANDSHAKE, NULL,
+                                      &p[s->tls_init_num], n, 0);
         if (i <= 0) {
-            s->rwstate = TLS_READING;
+            s->tls_rwstate = TLS_READING;
             *len = 0;
             return 0;
         }
-        s->init_num += i;
+        s->tls_init_num += i;
         n -= i;
     }
 
-#ifndef OPENTLS_NO_NEXTPROTONEG
-    /*
-     * If receiving Finished, record MAC of prior handshake messages for
-     * Finished verification.
-     */
-    if (*s->init_buf->data == TLS_MT_FINISHED)
-        tls_take_mac(s);
-#endif
-
-    /* Feed this message into MAC computation. */
-    if (RECORD_LAYER_is_sslv2_record(&s->rlayer)) {
-        if (!tls_finish_mac(s, (fc_u8 *)s->init_buf->data,
-                             s->init_num)) {
-            TLSerr(TLS_F_TLS_GET_MESSAGE_BODY, ERR_R_EVP_LIB);
-            tls_send_alert(s, TLS_AL_FATAL, TLS_AD_INTERNAL_ERROR);
-            *len = 0;
-            return 0;
-        }
-        if (s->msg_callback)
-            s->msg_callback(0, TLS2_VERSION, 0, s->init_buf->data,
-                            (size_t)s->init_num, s, s->msg_callback_arg);
-    } else {
-        if (!tls_finish_mac(s, (fc_u8 *)s->init_buf->data,
-                             s->init_num + TLS_HM_HEADER_LENGTH)) {
-            TLSerr(TLS_F_TLS_GET_MESSAGE_BODY, ERR_R_EVP_LIB);
-            tls_send_alert(s, TLS_AL_FATAL, TLS_AD_INTERNAL_ERROR);
-            *len = 0;
-            return 0;
-        }
+    if (!tls_finish_mac(s, (fc_u8 *)s->tls_init_buf->bm_data,
+                s->tls_init_num + TLS_HM_HEADER_LENGTH)) {
+        tls_send_alert(s, TLS_AL_FATAL, TLS_AD_INTERNAL_ERROR);
+        *len = 0;
+        return 0;
     }
 
     /*
      * init_num should never be negative...should probably be declared
      * unsigned
      */
-    if (s->init_num < 0) {
+    if (s->tls_init_num < 0) {
         tls_send_alert(s, TLS_AL_FATAL, TLS_AD_INTERNAL_ERROR);
         *len = 0;
         return 0;
     }
-    *len = (fc_ulong)s->init_num;
-#endif
+    *len = (fc_ulong)s->tls_init_num;
+
     return 1;
 }
 
