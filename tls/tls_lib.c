@@ -165,12 +165,14 @@ FCTLS_get_client_ciphers(const TLS *s)
 int
 tls_cipher_ptr_id_cmp(const TLS_CIPHER *const *ap, const TLS_CIPHER *const *bp)
 {
+//    FC_LOG("id1 = %d, id2 = %d\n", (*ap)->cp_id, (*bp)->cp_id);
     if ((*ap)->cp_id > (*bp)->cp_id) {
         return 1;
     }
     if ((*ap)->cp_id < (*bp)->cp_id) {
         return -1;
     }
+ 
     return 0;
 }
 

@@ -7,6 +7,7 @@
 #include <falcontls/stack.h>
 #include <falcontls/objects.h>
 #include <falcontls/crypto.h>
+#include <fc_log.h>
 
 struct stack_t {
     int                 sk_num;
@@ -122,6 +123,7 @@ FCTLS_sk_new(FCTLS_sk_compfunc c)
         goto err;
     }
 
+    FC_LOG("comp = %p\n", c);
     ret->sk_comp = c;
     ret->sk_num_alloc = MIN_NODES;
 
@@ -207,6 +209,21 @@ FCTLS_sk_delete(FCTLS_STACK *st, int loc)
     return (void *)ret;
 }
 
+static const void  *
+obj_bsearch(const void *data, const char **sk_data, int sk_num,
+            FCTLS_sk_compfunc comp)
+{
+    int             i = 0;
+
+    for (i = 0; i < sk_num; i++) {
+        if (comp(sk_data[i], data) == 0) {
+            return (void *)&sk_data[i];
+        }
+    }
+
+    return NULL;
+}
+
 static int
 internal_find(FCTLS_STACK *st, const void *data,
                          int ret_val_options)
@@ -230,8 +247,8 @@ internal_find(FCTLS_STACK *st, const void *data,
     if (data == NULL) {
         return (-1);
     }
-    //r = OBJ_bsearch_ex_(&data, st->sk_data, st->sk_num, sizeof(void *), st->sk_comp,
-    //                    ret_val_options);
+
+    r = obj_bsearch(data, st->sk_data, st->sk_num, st->sk_comp);
     if (r == NULL) {
         return (-1);
     }

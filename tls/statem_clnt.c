@@ -66,6 +66,7 @@ tls_statem_client_read_transition(TLS *s, int mt)
         break;
 
     case TLS_ST_CR_SRVR_HELLO:
+        FC_LOG("ServerHello!\n");
 #if 0
         if (s->hit) {
             if (s->tlsext_ticket_expected) {
@@ -458,7 +459,7 @@ tls_process_server_hello(TLS *s, PACKET *pkt)
     sk = tls_get_ciphers_by_id(s);
     i = sk_TLS_CIPHER_find(sk, c);
     if (i < 0) {
-        FC_LOG("Find cipher failed\n");
+        FC_LOG("Find cipher failed, sk = %p\n", sk);
         /* we did not say we would use this cipher */
         al = TLS_AD_ILLEGAL_PARAMETER;
         goto f_err;
