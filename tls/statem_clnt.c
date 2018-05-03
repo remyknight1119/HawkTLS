@@ -2,6 +2,7 @@
 
 #include <falcontls/types.h>
 #include <falcontls/safestack.h>
+#include <falcontls/x509.h>
 #include <fc_assert.h>
 #include <fc_log.h>
 
@@ -21,11 +22,16 @@ typedef struct tls_client_process_t {
 } CLIENT_PROCESS;
 
 static MSG_PROCESS_RETURN tls_process_server_hello(TLS *s, PACKET *pkt);
+static MSG_PROCESS_RETURN tls_process_server_certificate(TLS *s, PACKET *pkt);
 
 static const CLIENT_PROCESS tls_statem_client_process[] = {
     {
         .pc_hand_state = TLS_ST_CR_SRVR_HELLO,
         .pc_proc = tls_process_server_hello,
+    },
+    {
+        .pc_hand_state = TLS_ST_CR_CERT,
+        .pc_proc = tls_process_server_certificate,
     },
 };
 
@@ -54,21 +60,92 @@ int
 tls_statem_client_read_transition(TLS *s, int mt)
 {
     TLS_STATEM  *st = &s->tls_statem;
-    //int ske_expected;
 
     switch (st->sm_hand_state) {
-    case TLS_ST_CW_CLNT_HELLO:
-        if (mt == TLS1_MT_SERVER_HELLO) {
-            st->sm_hand_state = TLS_ST_CR_SRVR_HELLO;
-            return 1;
-        }
+        case TLS_ST_CW_CLNT_HELLO:
+            if (mt == TLS1_MT_SERVER_HELLO) {
+                st->sm_hand_state = TLS_ST_CR_SRVR_HELLO;
+                return 1;
+            }
 
-        break;
+            break;
 
-    case TLS_ST_CR_SRVR_HELLO:
-        FC_LOG("ServerHello!\n");
+        case TLS_ST_CR_SRVR_HELLO:
+            if (s->tls_hit) {
+                if (s->tls_ext_ticket_expected) {
+                    if (mt == TLS1_MT_NEWSESSION_TICKET) {
+                        st->sm_hand_state = TLS_ST_CR_SESSION_TICKET;
+                        return 1;
+                    }
+                } else if (mt == TLS1_MT_CHANGE_CIPHER_SPEC) {
+                    st->sm_hand_state = TLS_ST_CR_CHANGE;
+                    return 1;
+                }
+            } else {
+                if (mt == TLS1_MT_CERTIFICATE) {
+                    st->sm_hand_state = TLS_ST_CR_CERT;
+                    return 1;
+                }
+                if (mt == TLS1_MT_CERTIFICATE_REQUEST) {
+                    st->sm_hand_state = TLS_ST_CR_CERT_REQ;
+                    return 1;
+                } 
+                if (mt == TLS1_MT_SERVER_DONE) {
+                    st->sm_hand_state = TLS_ST_CR_SRVR_DONE;
+                    return 1;
+                }
+            }
+            break;
+
+        case TLS_ST_CR_CERT:
 #if 0
-        if (s->hit) {
+            /*
+             * The CertificateStatus message is optional even if
+             * |tlsext_status_expected| is set
+             */
+            if (s->tlsext_status_expected && mt == TLS1_MT_CERTIFICATE_STATUS) {
+                st->sm_hand_state = TLS_ST_CR_CERT_STATUS;
+                return 1;
+            }
+#endif
+            /* Fall through */
+
+        case TLS_ST_CR_CERT_STATUS:
+#if 0
+            ske_expected = key_exchange_expected(s);
+            /* SKE is optional for some PSK ciphersuites */
+            if (ske_expected || ((s->s3->tmp.new_cipher->algorithm_mkey & TLS_PSK)
+                        && mt == TLS1_MT_SERVER_KEY_EXCHANGE)) {
+                if (mt == TLS1_MT_SERVER_KEY_EXCHANGE) {
+                    st->sm_hand_state = TLS_ST_CR_KEY_EXCH;
+                    return 1;
+                }
+                goto err;
+            }
+#endif
+            /* Fall through */
+
+        case TLS_ST_CR_KEY_EXCH:
+            if (mt == TLS1_MT_CERTIFICATE_REQUEST) {
+#if 0
+                if (cert_req_allowed(s)) {
+                    st->sm_hand_state = TLS_ST_CR_CERT_REQ;
+                    return 1;
+                }
+#endif
+                goto err;
+            }
+            /* Fall through */
+
+        case TLS_ST_CR_CERT_REQ:
+            if (mt == TLS1_MT_SERVER_DONE) {
+                st->sm_hand_state = TLS_ST_CR_SRVR_DONE;
+                return 1;
+            }
+            break;
+
+        case TLS_ST_CW_FINISHED:
+#if 0
             if (s->tlsext_ticket_expected) {
                 if (mt == TLS1_MT_NEWSESSION_TICKET) {
                     st->sm_hand_state = TLS_ST_CR_SESSION_TICKET;
@@ -78,132 +155,28 @@ tls_statem_client_read_transition(TLS *s, int mt)
                 st->sm_hand_state = TLS_ST_CR_CHANGE;
                 return 1;
             }
-        } else {
-            if (TLS_IS_DTLS(s) && mt == DTLS1_MT_HELLO_VERIFY_REQUEST) {
-                st->sm_hand_state = DTLS_ST_CR_HELLO_VERIFY_REQUEST;
-                return 1;
-            } else if (s->version >= TLS1_VERSION
-                       && s->tls_session_secret_cb != NULL
-                       && s->session->tlsext_tick != NULL
-                       && mt == TLS1_MT_CHANGE_CIPHER_SPEC) {
-                /*
-                 * Normally, we can tell if the server is resuming the session
-                 * from the session ID. EAP-FAST (RFC 4851), however, relies on
-                 * the next server message after the ServerHello to determine if
-                 * the server is resuming.
-                 */
-                s->hit = 1;
+#endif
+            break;
+
+        case TLS_ST_CR_SESSION_TICKET:
+            if (mt == TLS1_MT_CHANGE_CIPHER_SPEC) {
                 st->sm_hand_state = TLS_ST_CR_CHANGE;
                 return 1;
-            } else if (!(s->s3->tmp.new_cipher->algorithm_auth
-                         & (TLS_aNULL | TLS_aSRP | TLS_aPSK))) {
-                if (mt == TLS1_MT_CERTIFICATE) {
-                    st->sm_hand_state = TLS_ST_CR_CERT;
-                    return 1;
-                }
-            } else {
-                ske_expected = key_exchange_expected(s);
-                /* SKE is optional for some PSK ciphersuites */
-                if (ske_expected
-                    || ((s->s3->tmp.new_cipher->algorithm_mkey & TLS_PSK)
-                        && mt == TLS1_MT_SERVER_KEY_EXCHANGE)) {
-                    if (mt == TLS1_MT_SERVER_KEY_EXCHANGE) {
-                        st->sm_hand_state = TLS_ST_CR_KEY_EXCH;
-                        return 1;
-                    }
-                } else if (mt == TLS1_MT_CERTIFICATE_REQUEST
-                           && cert_req_allowed(s)) {
-                    st->sm_hand_state = TLS_ST_CR_CERT_REQ;
-                    return 1;
-                } else if (mt == TLS1_MT_SERVER_DONE) {
-                    st->sm_hand_state = TLS_ST_CR_SRVR_DONE;
-                    return 1;
-                }
             }
-        }
-#endif
-        break;
+            break;
 
-    case TLS_ST_CR_CERT:
-#if 0
-        /*
-         * The CertificateStatus message is optional even if
-         * |tlsext_status_expected| is set
-         */
-        if (s->tlsext_status_expected && mt == TLS1_MT_CERTIFICATE_STATUS) {
-            st->sm_hand_state = TLS_ST_CR_CERT_STATUS;
-            return 1;
-        }
-#endif
-        /* Fall through */
-
-    case TLS_ST_CR_CERT_STATUS:
-#if 0
-        ske_expected = key_exchange_expected(s);
-        /* SKE is optional for some PSK ciphersuites */
-        if (ske_expected || ((s->s3->tmp.new_cipher->algorithm_mkey & TLS_PSK)
-                             && mt == TLS1_MT_SERVER_KEY_EXCHANGE)) {
-            if (mt == TLS1_MT_SERVER_KEY_EXCHANGE) {
-                st->sm_hand_state = TLS_ST_CR_KEY_EXCH;
+        case TLS_ST_CR_CHANGE:
+            if (mt == TLS1_MT_FINISHED) {
+                st->sm_hand_state = TLS_ST_CR_FINISHED;
                 return 1;
             }
-            goto err;
-        }
-#endif
-        /* Fall through */
+            break;
 
-    case TLS_ST_CR_KEY_EXCH:
-        if (mt == TLS1_MT_CERTIFICATE_REQUEST) {
-#if 0
-            if (cert_req_allowed(s)) {
-                st->sm_hand_state = TLS_ST_CR_CERT_REQ;
-                return 1;
-            }
-#endif
-            goto err;
-        }
-        /* Fall through */
-
-    case TLS_ST_CR_CERT_REQ:
-        if (mt == TLS1_MT_SERVER_DONE) {
-            st->sm_hand_state = TLS_ST_CR_SRVR_DONE;
-            return 1;
-        }
-        break;
-
-    case TLS_ST_CW_FINISHED:
-#if 0
-        if (s->tlsext_ticket_expected) {
-            if (mt == TLS1_MT_NEWSESSION_TICKET) {
-                st->sm_hand_state = TLS_ST_CR_SESSION_TICKET;
-                return 1;
-            }
-        } else if (mt == TLS1_MT_CHANGE_CIPHER_SPEC) {
-            st->sm_hand_state = TLS_ST_CR_CHANGE;
-            return 1;
-        }
-#endif
-        break;
-
-    case TLS_ST_CR_SESSION_TICKET:
-        if (mt == TLS1_MT_CHANGE_CIPHER_SPEC) {
-            st->sm_hand_state = TLS_ST_CR_CHANGE;
-            return 1;
-        }
-        break;
-
-    case TLS_ST_CR_CHANGE:
-        if (mt == TLS1_MT_FINISHED) {
-            st->sm_hand_state = TLS_ST_CR_FINISHED;
-            return 1;
-        }
-        break;
-
-    default:
-        break;
+        default:
+            break;
     }
 
- err:
+err:
     /* No valid transition found */
     tls_send_alert(s, TLS_AL_FATAL, TLS_AD_UNEXPECTED_MESSAGE);
     return 0;
@@ -451,7 +424,7 @@ tls_process_server_hello(TLS *s, PACKET *pkt)
         goto f_err;
     }
 
-    if (tls_cipher_disabled(s, c, 0/*SSL_SECOP_CIPHER_CHECK*/, 1)) {
+    if (tls_cipher_disabled(s, c, 0/*TLS_SECOP_CIPHER_CHECK*/, 1)) {
         FC_LOG("Error: cipher disabled\n");
         al = TLS_AD_ILLEGAL_PARAMETER;
         goto f_err;
@@ -510,6 +483,130 @@ f_err:
     tls_send_alert(s, TLS_AL_FATAL, al);
 err:
     return MSG_PROCESS_ERROR;
+}
+
+static MSG_PROCESS_RETURN
+tls_process_server_certificate(TLS *s, PACKET *pkt)
+{
+    FC_X509                 *x = NULL;
+    FC_STACK_OF(FC_X509)    *sk = NULL;
+    FC_EVP_PKEY             *pkey = NULL;
+    const fc_u8             *certstart = NULL;
+    const fc_u8             *certbytes;
+    fc_ulong                cert_list_len = 0;
+    fc_ulong                cert_len = 0;
+    int                     al = 0;
+    int                     i = 0;
+    int                     exp_idx = 0;
+    int                     ret = MSG_PROCESS_ERROR;
+
+    if ((sk = sk_FC_X509_new_null()) == NULL) {
+        goto err;
+    }
+
+    if (!PACKET_get_net_3(pkt, &cert_list_len)
+        || PACKET_remaining(pkt) != cert_list_len) {
+        al = TLS_AD_DECODE_ERROR;
+        goto f_err;
+    }
+    while (PACKET_remaining(pkt)) {
+        if (!PACKET_get_net_3(pkt, &cert_len)
+            || !PACKET_get_bytes(pkt, &certbytes, cert_len)) {
+            al = TLS_AD_DECODE_ERROR;
+            goto f_err;
+        }
+
+        certstart = certbytes;
+        x = d2i_X509(NULL, (const unsigned char **)&certbytes, cert_len);
+        if (x == NULL) {
+            al = TLS_AD_BAD_CERTIFICATE;
+            goto f_err;
+        }
+        if (certbytes != (certstart + cert_len)) {
+            al = TLS_AD_DECODE_ERROR;
+            goto f_err;
+        }
+        if (!sk_FC_X509_push(sk, x)) {
+            goto out;
+        }
+        x = NULL;
+    }
+
+    i = ssl_verify_cert_chain(s, sk);
+    /*
+     * The documented interface is that TLS_VERIFY_PEER should be set in order
+     * for client side verification of the server certificate to take place.
+     * However, historically the code has only checked that *any* flag is set
+     * to cause server verification to take place. Use of the other flags makes
+     * no sense in client mode. An attempt to clean up the semantics was
+     * reverted because at least one application *only* set
+     * TLS_VERIFY_FAIL_IF_NO_PEER_CERT. Prior to the clean up this still caused
+     * server verification to take place, after the clean up it silently did
+     * nothing. TLS_CTX_set_verify()/TLS_set_verify() cannot validate the flags
+     * sent to them because they are void functions. Therefore, we now use the
+     * (less clean) historic behaviour of performing validation if any flag is
+     * set. The *documented* interface remains the same.
+     */
+    if (s->verify_mode != TLS_VERIFY_NONE && i <= 0) {
+        al = ssl_verify_alarm_type(s->verify_result);
+        goto f_err;
+    }
+
+    if (i > 1) {
+        al = TLS_AD_HANDSHAKE_FAILURE;
+        goto f_err;
+    }
+
+    s->tls_session->peer_chain = sk;
+    /*
+     * Inconsistency alert: cert_chain does include the peer's certificate,
+     * which we don't include in statem_srvr.c
+     */
+    x = sk_FC_X509_value(sk, 0);
+    sk = NULL;
+
+    pkey = X509_get0_pubkey(x);
+
+    if (pkey == NULL || EVP_PKEY_missing_parameters(pkey)) {
+        x = NULL;
+        al = TLS_AL_FATAL;
+        goto f_err;
+    }
+
+    i = ssl_cert_type(x, pkey);
+    if (i < 0) {
+        x = NULL;
+        al = TLS_AL_FATAL;
+        goto f_err;
+    }
+
+    exp_idx = ssl_cipher_get_cert_index(s->tls_tmp.tm_new_cipher);
+    if (exp_idx >= 0 && i != exp_idx
+        && (exp_idx != TLS_PKEY_GOST_EC ||
+            (i != TLS_PKEY_GOST12_512 && i != TLS_PKEY_GOST12_256
+             && i != TLS_PKEY_GOST01))) {
+        x = NULL;
+        al = TLS_AD_ILLEGAL_PARAMETER;
+        goto f_err;
+    }
+    s->tls_session->peer_type = i;
+
+    X509_free(s->tls_session->peer);
+    X509_up_ref(x);
+    s->tls_session->peer = x;
+    s->tls_session->verify_result = s->verify_result;
+
+    x = NULL;
+    ret = MSG_PROCESS_CONTINUE_READING;
+    goto out;
+
+ f_err:
+    tls_send_alert(s, TLS_AL_FATAL, al);
+ out:
+    X509_free(x);
+    sk_FC_X509_pop_free(sk, X509_free);
+    return ret;
+
 }
 
 static int

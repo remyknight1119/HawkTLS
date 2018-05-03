@@ -16,6 +16,7 @@
 #define FC_TLS_MAX_SID_CTX_LENGTH           32
 
 #define FC_TLS_RANDOM_BYTES_LEN             28
+#define FC_TLS_MAX_CERT_LIST_DEFAULT        1024*100
 
 #define FC_TLS_DEFAULT_CIPHER_LIST          "ALL"
 

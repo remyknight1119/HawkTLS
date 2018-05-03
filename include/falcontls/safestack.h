@@ -1,6 +1,8 @@
 #ifndef __FC_SAFESTACK_H__
 #define __FC_SAFESTACK_H__
 
+#include <falcontls/stack.h>
+
 #define FC_STACK_OF(type) struct fc_stack_t_##type
 //#define PREDECLARE_STACK_OF(type) FC_STACK_OF(type);
 
@@ -126,11 +128,11 @@
                 (FCTLS_sk_compfunc)compare); \
     }
 
-# define FC_DEFINE_SPECIAL_STACK_OF(t1, t2) FC_SKM_DEFINE_STACK_OF(t1, t2, t2)
-# define FC_DEFINE_STACK_OF(t) FC_SKM_DEFINE_STACK_OF(t, t, t)
-# define FC_DEFINE_SPECIAL_STACK_OF_CONST(t1, t2) \
+#define FC_DEFINE_SPECIAL_STACK_OF(t1, t2) FC_SKM_DEFINE_STACK_OF(t1, t2, t2)
+#define FC_DEFINE_STACK_OF(t) FC_SKM_DEFINE_STACK_OF(t, t, t)
+#define FC_DEFINE_SPECIAL_STACK_OF_CONST(t1, t2) \
             FC_SKM_DEFINE_STACK_OF(t1, const t2, t2)
-# define FC_DEFINE_STACK_OF_CONST(t) FC_SKM_DEFINE_STACK_OF(t, const t, t)
+#define FC_DEFINE_STACK_OF_CONST(t) FC_SKM_DEFINE_STACK_OF(t, const t, t)
 
 
 

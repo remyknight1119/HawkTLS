@@ -24,6 +24,7 @@ FCTLS_CTX_new(const TLS_METHOD *meth)
     ctx->sc_method = meth;
     ctx->sc_max_send_fragment = FC_TLS_RT_MAX_PLAIN_LENGTH;
     ctx->sc_split_send_fragment = FC_TLS_RT_MAX_PLAIN_LENGTH;
+    ctx->sc_max_cert_list = FC_TLS_MAX_CERT_LIST_DEFAULT;
     if ((ctx->sc_cert = tls_cert_new()) == NULL) {
         FC_LOG("CERT new failed!\n");
         goto err;
@@ -99,6 +100,7 @@ FCTLS_new(TLS_CTX *ctx)
     s->tls_max_send_fragment = ctx->sc_max_send_fragment;
     s->tls_split_send_fragment = ctx->sc_split_send_fragment;
     s->tls_max_pipelines = ctx->sc_max_pipelines;
+    s->tls_max_cert_list = ctx->sc_max_cert_list;
 
     if (!s->tls_method->md_tls_new(s)) {
         FC_LOG("TLS new failed\n");

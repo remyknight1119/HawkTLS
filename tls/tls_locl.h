@@ -178,7 +178,7 @@ struct fc_tls_t {
     int                         tls_init_off; 
     int                         tls_new_session;
     int                         tls_renegotiate; 
-
+    int                         tls_ext_ticket_expected;
     struct {
         fc_ulong                tm_message_size;
         int                     tm_message_type;
@@ -215,6 +215,7 @@ struct fc_tls_ctx_t {
     fc_u32                      sc_max_pipelines;
     fc_u32                      sc_sid_ctx_length;
     fc_u8                       sc_sid_ctx[FC_TLS_MAX_SID_CTX_LENGTH];
+    long                        sc_max_cert_list;
 }; 
 
 #define TLS_CIPHER_LEN  2
