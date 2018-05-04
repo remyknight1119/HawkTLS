@@ -501,7 +501,7 @@ tls_process_server_certificate(TLS *s, PACKET *pkt)
     int                     ret = MSG_PROCESS_ERROR;
 
     if ((sk = sk_FC_X509_new_null()) == NULL) {
-        goto err;
+        goto out;
     }
 
     if (!PACKET_get_net_3(pkt, &cert_list_len)
@@ -517,7 +517,7 @@ tls_process_server_certificate(TLS *s, PACKET *pkt)
         }
 
         certstart = certbytes;
-        x = d2i_X509(NULL, (const unsigned char **)&certbytes, cert_len);
+        x = fc_d2i_FC_X509(NULL, (const fc_u8 **)&certbytes, cert_len);
         if (x == NULL) {
             al = TLS_AD_BAD_CERTIFICATE;
             goto f_err;
@@ -591,8 +591,8 @@ tls_process_server_certificate(TLS *s, PACKET *pkt)
     }
     s->tls_session->peer_type = i;
 
-    X509_free(s->tls_session->peer);
-    X509_up_ref(x);
+    FC_X509_free(s->tls_session->peer);
+    FC_X509_up_ref(x);
     s->tls_session->peer = x;
     s->tls_session->verify_result = s->verify_result;
 

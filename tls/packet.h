@@ -72,6 +72,36 @@ static inline void PACKET_null_init(PACKET *pkt)
 }
 
 /*
+ * Peek ahead at 3 bytes in network order from |pkt| and store the value in
+ * |*data|
+ */
+static inline int PACKET_peek_net_3(const PACKET *pkt, fc_ulong *data)
+{
+    if (PACKET_remaining(pkt) < 3) {
+        return 0;
+    }
+
+    *data = ((fc_ulong)(*pkt->pk_curr)) << 16;
+    *data |= ((fc_ulong)(*(pkt->pk_curr + 1))) << 8;
+    *data |= *(pkt->pk_curr + 2);
+
+    return 1;
+}
+
+/* Equivalent of n2l3 */
+/* Get 3 bytes in network order from |pkt| and store the value in |*data| */
+static inline int PACKET_get_net_3(PACKET *pkt, fc_ulong *data)
+{
+    if (!PACKET_peek_net_3(pkt, data)) {
+        return 0;
+    }
+
+    packet_forward(pkt, 3);
+
+    return 1;
+}
+
+/*
  * Peek ahead at 2 bytes in network order from |pkt| and store the value in
  * |*data|
  */

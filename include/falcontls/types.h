@@ -30,6 +30,7 @@ typedef struct fc_evp_cipher_t FC_EVP_CIPHER;
 typedef struct fc_evp_cipher_ctx_t FC_EVP_CIPHER_CTX;
 typedef struct fc_evp_md_t FC_EVP_MD;
 typedef struct fc_evp_md_ctx_t FC_EVP_MD_CTX;
+typedef struct FC_ASN1_ITEM_t FC_ASN1_ITEM;
 
 #define FC_ARRAY_SIZE(array)    (sizeof(array)/sizeof(array[0]))
 
