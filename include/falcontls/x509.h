@@ -14,7 +14,6 @@ FC_DEFINE_STACK_OF(FC_X509)
 FC_DECLARE_ASN1_FUNCTIONS(FC_X509)
 
 extern int FC_X509_check_private_key(const FC_X509 *x, const FC_EVP_PKEY *k);
-extern void FC_X509_free(FC_X509 *x);
 extern FC_EVP_PKEY *FC_X509_get0_pubkey(const FC_X509 *x);
 
 #endif

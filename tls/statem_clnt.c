@@ -517,7 +517,7 @@ tls_process_server_certificate(TLS *s, PACKET *pkt)
         }
 
         certstart = certbytes;
-        x = fc_d2i_FC_X509(NULL, (const fc_u8 **)&certbytes, cert_len);
+        x = d2i_FC_X509(NULL, (const fc_u8 **)&certbytes, cert_len);
         if (x == NULL) {
             al = TLS_AD_BAD_CERTIFICATE;
             goto f_err;

@@ -19,9 +19,3 @@ FC_X509_get0_pubkey(const FC_X509 *x)
     return (FC_EVP_PKEY *)X509_get_pubkey((X509 *)x);
 }
 
-void
-FC_X509_free(FC_X509 *x)
-{
-    X509_free((X509 *)x);
-}
-
