@@ -532,7 +532,7 @@ tls_process_server_certificate(TLS *s, PACKET *pkt)
         x = NULL;
     }
 
-    i = ssl_verify_cert_chain(s, sk);
+    i = tls_verify_cert_chain(s, sk);
     /*
      * The documented interface is that TLS_VERIFY_PEER should be set in order
      * for client side verification of the server certificate to take place.
@@ -547,8 +547,8 @@ tls_process_server_certificate(TLS *s, PACKET *pkt)
      * (less clean) historic behaviour of performing validation if any flag is
      * set. The *documented* interface remains the same.
      */
-    if (s->verify_mode != TLS_VERIFY_NONE && i <= 0) {
-        al = ssl_verify_alarm_type(s->verify_result);
+    if (s->tls_verify_mode != FC_TLS_VERIFY_NONE && i <= 0) {
+        al = tls_verify_alarm_type(s->tls_verify_result);
         goto f_err;
     }
 
@@ -557,7 +557,7 @@ tls_process_server_certificate(TLS *s, PACKET *pkt)
         goto f_err;
     }
 
-    s->tls_session->peer_chain = sk;
+    s->tls_session->se_peer_chain = sk;
     /*
      * Inconsistency alert: cert_chain does include the peer's certificate,
      * which we don't include in statem_srvr.c
@@ -565,15 +565,14 @@ tls_process_server_certificate(TLS *s, PACKET *pkt)
     x = sk_FC_X509_value(sk, 0);
     sk = NULL;
 
-    pkey = X509_get0_pubkey(x);
-
-    if (pkey == NULL || EVP_PKEY_missing_parameters(pkey)) {
+    pkey = FC_X509_get0_pubkey(x);
+    if (pkey == NULL || FC_EVP_PKEY_missing_parameters(pkey)) {
         x = NULL;
         al = TLS_AL_FATAL;
         goto f_err;
     }
 
-    i = ssl_cert_type(x, pkey);
+    i = tls_cert_type(x, pkey);
     if (i < 0) {
         x = NULL;
         al = TLS_AL_FATAL;

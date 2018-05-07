@@ -33,6 +33,10 @@
 #define FC_TLS_RSA_WITH_AES_128_GCM_SHA256              (0x009c)
 #define FC_TLS_RSA_WITH_AES_128_CBC_SHA256              (0x003c)
 
+/*
+ * use either FC_TLS_VERIFY_NONE or FC_TLS_VERIFY_PEER, the last 2 options are
+ * 'ored' with FC_TLS_VERIFY_PEER if they are desired
+ */
 #define FC_TLS_VERIFY_NONE                      0x00
 #define FC_TLS_VERIFY_PEER                      0x01
 #define FC_TLS_VERIFY_FAIL_IF_NO_PEER_CERT      0x02

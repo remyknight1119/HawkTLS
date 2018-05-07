@@ -36,6 +36,7 @@ extern int FC_EVP_PKEY_id(const FC_EVP_PKEY *pkey);
 extern void FC_EVP_PKEY_free(FC_EVP_PKEY *pkey);
 extern const FC_EVP_CIPHER *
 FC_EVP_CIPHER_CTX_cipher(const FC_EVP_CIPHER_CTX *ctx);
+extern int FC_EVP_PKEY_missing_parameters(const FC_EVP_PKEY *pkey);
 extern fc_ulong FC_EVP_CIPHER_flags(const FC_EVP_CIPHER *cipher);
 extern const FC_EVP_MD *FC_EVP_MD_CTX_md(const FC_EVP_MD_CTX *ctx);
 extern int FC_EVP_MD_size(const FC_EVP_MD *md);

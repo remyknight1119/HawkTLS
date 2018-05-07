@@ -24,3 +24,9 @@ FC_EVP_PKEY_free(FC_EVP_PKEY *pkey)
 {
     EVP_PKEY_free((EVP_PKEY *)pkey);
 }
+
+int
+FC_EVP_PKEY_missing_parameters(const FC_EVP_PKEY *pkey)
+{
+    return EVP_PKEY_missing_parameters((const EVP_PKEY *)pkey);
+}

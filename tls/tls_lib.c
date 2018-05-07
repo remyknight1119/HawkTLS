@@ -101,6 +101,7 @@ FCTLS_new(TLS_CTX *ctx)
     s->tls_split_send_fragment = ctx->sc_split_send_fragment;
     s->tls_max_pipelines = ctx->sc_max_pipelines;
     s->tls_max_cert_list = ctx->sc_max_cert_list;
+    s->tls_verify_mode = ctx->sc_verify_mode;
 
     if (!s->tls_method->md_tls_new(s)) {
         FC_LOG("TLS new failed\n");

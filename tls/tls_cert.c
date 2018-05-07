@@ -319,6 +319,12 @@ static int tls_set_pkey(CERT *c, FC_EVP_PKEY *pkey)
 }
 
 int
+tls_verify_cert_chain(TLS *s, FC_STACK_OF(FC_X509) *sk)
+{
+    return 1;
+}
+
+int
 FCTLS_use_certificate(TLS *s, FC_X509 *x)
 {
     int rv = 0;

@@ -140,6 +140,7 @@ typedef struct tls_session_t {
     fc_ulong                se_cipher_id;
     const TLS_CIPHER        *se_cipher;
     FC_STACK_OF(TLS_CIPHER) *se_ciphers;
+    FC_STACK_OF(FC_X509)    *se_peer_chain;
 } TLS_SESSION;
 
 struct fc_tls_t {
@@ -166,10 +167,12 @@ struct fc_tls_t {
     fc_u32                      tls_max_send_fragment;
     fc_u32                      tls_split_send_fragment;
     fc_u32                      tls_max_pipelines;
+    fc_u32                      tls_verify_mode;
     fc_u32                      tls_sid_ctx_length;
     fc_u8                       tls_sid_ctx[FC_TLS_MAX_SID_CTX_LENGTH];
     TLS_RWSTATE                 tls_rwstate;
     long                        tls_max_cert_list;
+    long                        tls_verify_result;
     int                         tls_version;
     int                         tls_fd;
     int                         tls_hit;                    /* reusing a previous session */
@@ -213,6 +216,7 @@ struct fc_tls_ctx_t {
     fc_u32                      sc_max_send_fragment;
     fc_u32                      sc_split_send_fragment;
     fc_u32                      sc_max_pipelines;
+    fc_u32                      sc_verify_mode;
     fc_u32                      sc_sid_ctx_length;
     fc_u8                       sc_sid_ctx[FC_TLS_MAX_SID_CTX_LENGTH];
     long                        sc_max_cert_list;
@@ -310,6 +314,7 @@ TLS_RWSTATE TLS_want(const TLS *s);
 CERT *tls_cert_new(void);
 CERT *tls_cert_dup(CERT *cert);
 void tls_cert_free(CERT *c);
+int tls_verify_cert_chain(TLS *s, FC_STACK_OF(FC_X509) *sk);
 int tls_get_new_session(TLS *s, int session);
 TLS_SESSION *TLS_SESSION_new(void);
 void TLS_SESSION_free(TLS_SESSION *ss);
