@@ -3,6 +3,7 @@
 
 #include <falcontls/types.h>
 
+typedef struct FC_ASN1_TEMPLATE_st FC_ASN1_TEMPLATE;
 typedef struct FC_ASN1_VALUE_st FC_ASN1_VALUE;
 
 /* Macro to obtain ASN1_ITEM pointer from exported type */

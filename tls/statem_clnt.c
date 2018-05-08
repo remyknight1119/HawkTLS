@@ -579,21 +579,20 @@ tls_process_server_certificate(TLS *s, PACKET *pkt)
         goto f_err;
     }
 
-    exp_idx = ssl_cipher_get_cert_index(s->tls_tmp.tm_new_cipher);
+    exp_idx = tls_cipher_get_cert_index(s->tls_tmp.tm_new_cipher);
     if (exp_idx >= 0 && i != exp_idx
-        && (exp_idx != TLS_PKEY_GOST_EC ||
-            (i != TLS_PKEY_GOST12_512 && i != TLS_PKEY_GOST12_256
-             && i != TLS_PKEY_GOST01))) {
+        && (i != FC_EVP_PKEY_GOST12_512 && i != FC_EVP_PKEY_GOST12_256
+             && i != FC_EVP_PKEY_GOST01)) {
         x = NULL;
         al = TLS_AD_ILLEGAL_PARAMETER;
         goto f_err;
     }
-    s->tls_session->peer_type = i;
+    s->tls_session->se_peer_type = i;
 
-    FC_X509_free(s->tls_session->peer);
+    FC_X509_free(s->tls_session->se_peer);
     FC_X509_up_ref(x);
-    s->tls_session->peer = x;
-    s->tls_session->verify_result = s->verify_result;
+    s->tls_session->se_peer = x;
+    s->tls_session->se_verify_result = s->tls_verify_result;
 
     x = NULL;
     ret = MSG_PROCESS_CONTINUE_READING;
@@ -602,8 +601,8 @@ tls_process_server_certificate(TLS *s, PACKET *pkt)
  f_err:
     tls_send_alert(s, TLS_AL_FATAL, al);
  out:
-    X509_free(x);
-    sk_FC_X509_pop_free(sk, X509_free);
+    FC_X509_free(x);
+    sk_FC_X509_pop_free(sk, FC_X509_free);
     return ret;
 
 }

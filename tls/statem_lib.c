@@ -259,13 +259,3 @@ tls_verify_alarm_type(long type)
      return al;
 }
 
-int
-tls_cert_type(const FC_X509 *x, const FC_EVP_PKEY *pk)
-{
-    if (pk == NULL && (pk = FC_X509_get0_pubkey(x)) == NULL) {
-        return -1;
-    }
-
-    return FC_EVP_PKEY_id(pk);
-}
-

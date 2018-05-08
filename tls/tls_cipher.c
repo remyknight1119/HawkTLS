@@ -483,3 +483,22 @@ tls_get_cipher_by_char(TLS *s, const fc_u8 *ptr)
     return s->tls_method->md_get_cipher_by_char(ptr);
 }
 
+/* For a cipher return the index corresponding to the certificate type */
+int
+tls_cipher_get_cert_index(const TLS_CIPHER *c)
+{
+    fc_u32      alg_a = 0;
+
+    alg_a = c->cp_algorithm_auth;
+
+    if (alg_a & TLS_aECDSA) {
+        return FC_EVP_PKEY_ECC;
+    }
+    if (alg_a & TLS_aRSA) {
+        return FC_EVP_PKEY_RSA_ENC;
+    }
+
+    return -1;
+}
+
+

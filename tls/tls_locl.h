@@ -137,10 +137,13 @@ typedef struct tls_session_t {
     fc_u8                   se_session_id[FC_TLS_MAX_SESSION_ID_LENGTH];
     fc_u32                  se_sid_ctx_length;
     fc_u8                   se_sid_ctx[FC_TLS_MAX_SID_CTX_LENGTH];
+    int                     se_peer_type;
+    long                    se_verify_result;
     fc_ulong                se_cipher_id;
     const TLS_CIPHER        *se_cipher;
     FC_STACK_OF(TLS_CIPHER) *se_ciphers;
     FC_STACK_OF(FC_X509)    *se_peer_chain;
+    FC_X509                 *se_peer;
 } TLS_SESSION;
 
 struct fc_tls_t {
@@ -328,6 +331,7 @@ int tls_cipher_disabled(TLS *s, const TLS_CIPHER *c, int op, int ecdhe);
 int tls_cipher_ptr_id_cmp(const TLS_CIPHER *const *ap, const TLS_CIPHER *
                             const *bp);
 const TLS_CIPHER *tls_get_cipher_by_char(TLS *s, const fc_u8 *ptr);
+int tls_cipher_get_cert_index(const TLS_CIPHER *c);
 
 #define TLS_CIPHER_find tls_get_cipher_by_char
 
