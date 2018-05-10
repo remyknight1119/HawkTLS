@@ -3,8 +3,64 @@
 
 #include <falcontls/types.h>
 
-typedef struct FC_ASN1_TEMPLATE_st FC_ASN1_TEMPLATE;
-typedef struct FC_ASN1_VALUE_st FC_ASN1_VALUE;
+#define FC_V_ASN1_UNIVERSAL                0x00
+#define FC_V_ASN1_APPLICATION              0x40
+#define FC_V_ASN1_CONTEXT_SPECIFIC         0x80
+#define FC_V_ASN1_PRIVATE                  0xc0
+
+#define FC_V_ASN1_CONSTRUCTED              0x20
+#define FC_V_ASN1_PRIMITIVE_TAG            0x1f
+#define FC_V_ASN1_PRIMATIVE_TAG            0x1f
+
+#define FC_V_ASN1_APP_CHOOSE               -2/* let the recipient choose */
+#define FC_V_ASN1_OTHER                    -3/* used in ASN1_TYPE */
+#define FC_V_ASN1_ANY                      -4/* used in ASN1 template code */
+
+#define FC_V_ASN1_UNDEF                    -1
+/* ASN.1 tag values */
+#define FC_V_ASN1_EOC                      0
+#define FC_V_ASN1_BOOLEAN                  1 /**/
+#define FC_V_ASN1_INTEGER                  2
+#define FC_V_ASN1_BIT_STRING               3
+#define FC_V_ASN1_OCTET_STRING             4
+#define FC_V_ASN1_NULL                     5
+#define FC_V_ASN1_OBJECT                   6
+#define FC_V_ASN1_OBJECT_DESCRIPTOR        7
+#define FC_V_ASN1_EXTERNAL                 8
+#define FC_V_ASN1_REAL                     9
+#define FC_V_ASN1_ENUMERATED               10
+#define FC_V_ASN1_UTF8STRING               12
+#define FC_V_ASN1_SEQUENCE                 16
+#define FC_V_ASN1_SET                      17
+#define FC_V_ASN1_NUMERICSTRING            18 /**/
+#define FC_V_ASN1_PRINTABLESTRING          19
+#define FC_V_ASN1_T61STRING                20
+#define FC_V_ASN1_TELETEXSTRING            20/* alias */
+#define FC_V_ASN1_VIDEOTEXSTRING           21 /**/
+#define FC_V_ASN1_IA5STRING                22
+#define FC_V_ASN1_UTCTIME                  23
+#define FC_V_ASN1_GENERALIZEDTIME          24 /**/
+#define FC_V_ASN1_GRAPHICSTRING            25 /**/
+#define FC_V_ASN1_ISO64STRING              26 /**/
+#define FC_V_ASN1_VISIBLESTRING            26/* alias */
+#define FC_V_ASN1_GENERALSTRING            27 /**/
+#define FC_V_ASN1_UNIVERSALSTRING          28 /**/
+#define FC_V_ASN1_BMPSTRING                30
+
+/*
+ * NB the constants below are used internally by ASN1_INTEGER
+ * and ASN1_ENUMERATED to indicate the sign. They are *not* on
+ * the wire tag values.
+ */
+
+#define FC_V_ASN1_NEG                      0x100
+#define FC_V_ASN1_NEG_INTEGER              (2 | FC_V_ASN1_NEG)
+#define FC_V_ASN1_NEG_ENUMERATED           (10 | FC_V_ASN1_NEG)
+
+
+typedef struct FC_ASN1_TEMPLATE_t FC_ASN1_TEMPLATE;
+typedef struct FC_ASN1_VALUE_t FC_ASN1_VALUE;
+typedef const FC_ASN1_ITEM FC_ASN1_ITEM_EXP;
 
 /* Macro to obtain ASN1_ITEM pointer from exported type */
 #define FC_ASN1_ITEM_ptr(iptr) (iptr)

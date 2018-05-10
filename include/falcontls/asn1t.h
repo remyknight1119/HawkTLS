@@ -7,6 +7,14 @@
 #define offsetof(type, member) ((int) & ((type*)0) -> member)
 #endif
 
+#define FC_ASN1_ITYPE_PRIMITIVE         0x0
+#define FC_ASN1_ITYPE_SEQUENCE          0x1
+#define FC_ASN1_ITYPE_CHOICE            0x2
+#define FC_ASN1_ITYPE_EXTERN            0x4
+#define FC_ASN1_ITYPE_MSTRING           0x5
+#define FC_ASN1_ITYPE_NDEF_SEQUENCE     0x6
+
+
 /* Macros for start and end of ASN1_ITEM definition */
 
 #define FC_ASN1_ITEM_start(itname) \
@@ -115,14 +123,26 @@
 
 #define FC_ASN1_SEQUENCE_ref(tname, cb) \
         static const FC_ASN1_AUX tname##_aux = { \
-            cb, \
-            NULL, \
-            FC_ASN1_AFLG_REFCOUNT, \
-            offsetof(tname, references), \
-            offsetof(tname, lock), \
-            0 \
+            .asn1_cb = cb, \
+            .app_data = NULL, \
+            .flags = FC_ASN1_AFLG_REFCOUNT, \
+            .ref_offset = offsetof(tname, references), \
+            .ref_lock = offsetof(tname, lock), \
+            .enc_offset = 0 \
         }; \
         FC_ASN1_SEQUENCE(tname)
+
+#define FC_ASN1_SEQUENCE_END_ref(stname, tname) \
+        ;\
+        FC_ASN1_ITEM_start(tname) \
+                FC_ASN1_ITYPE_SEQUENCE,\
+                FC_V_ASN1_SEQUENCE,\
+                tname##_seq_tt,\
+                sizeof(tname##_seq_tt) / sizeof(FC_ASN1_TEMPLATE),\
+                &tname##_aux,\
+                sizeof(stname),\
+                #stname \
+        FC_ASN1_ITEM_end(tname)
 
 /*
  * This is the FC_ASN1_AUX structure: it handles various miscellaneous
@@ -149,6 +169,49 @@ typedef struct FC_ASN1_AUX_t {
     int             enc_offset;  /* Offset of FC_ASN1_ENCODING structure */
 } FC_ASN1_AUX;
 
+/*
+ * This is the ASN1 template structure that defines a wrapper round the
+ * actual type. It determines the actual position of the field in the value
+ * structure, various flags such as OPTIONAL and the field name.
+ */
+
+struct FC_SN1_TEMPLATE_t {
+    unsigned long flags;        /* Various flags */
+    long tag;                   /* tag, not used if no tagging */
+    unsigned long offset;       /* Offset of this field in structure */
+    const char *field_name;     /* Field name */
+    FC_ASN1_ITEM_EXP *item;        /* Relevant ASN1_ITEM or ASN1_ADB */
+};
+
+/* This is the actual ASN1 item itself */
+
+struct FC_ASN1_ITEM_t {
+    char itype;                 /* The item type, primitive, SEQUENCE, CHOICE
+                                 * or extern */
+    long utype;                 /* underlying type */
+    const FC_ASN1_TEMPLATE *templates; /* If SEQUENCE or CHOICE this contains
+                                     * the contents */
+    long tcount;                /* Number of templates if SEQUENCE or CHOICE */
+    const void *funcs;          /* functions that handle this type */
+    long size;                  /* Structure size (usually) */
+    const char *sname;          /* Structure name */
+};
+
+/*
+ * This is the ASN1 template structure that defines a wrapper round the
+ * actual type. It determines the actual position of the field in the value
+ * structure, various flags such as OPTIONAL and the field name.
+ */
+
+struct FC_ASN1_TEMPLATE_t {
+    unsigned long flags;        /* Various flags */
+    long tag;                   /* tag, not used if no tagging */
+    unsigned long offset;       /* Offset of this field in structure */
+    const char *field_name;     /* Field name */
+    FC_ASN1_ITEM_EXP *item;        /* Relevant ASN1_ITEM or ASN1_ADB */
+};
+
+
 /* Use a reference count */
 #define FC_ASN1_AFLG_REFCOUNT       1
 /* Save the encoding of structure (useful for signatures) */
@@ -156,6 +219,14 @@ typedef struct FC_ASN1_AUX_t {
 /* The Sequence length is invalid */
 #define FC_ASN1_AFLG_BROKEN         4
 
+#define FC_ASN1_TFLG_EMBED         (0x1 << 12)
+
+#define FC_ASN1_EX_TYPE(flags, tag, stname, field, type) { \
+        (flags), (tag), offsetof(stname, field),\
+        #field, FC_ASN1_ITEM_ref(type) }
+
+#define FC_ASN1_EMBED(stname, field, type) \
+            FC_ASN1_EX_TYPE(FC_ASN1_TFLG_EMBED,0, stname, field, type) 
 
 
 #endif
