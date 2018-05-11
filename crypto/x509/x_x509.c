@@ -22,4 +22,16 @@ FC_ASN1_SEQUENCE_ref(FC_X509, fc_x509_cb) = {
 } FC_ASN1_SEQUENCE_END_ref(FC_X509, FC_X509)
 
 
-FC_IMPLEMENT_ASN1_FUNCTIONS(FC_X509)
+//FC_IMPLEMENT_ASN1_FUNCTIONS(FC_X509)
+
+
+FC_X509 *
+d2i_FC_X509(FC_X509 **val, const fc_u8 **in, long len)
+{
+    return (FC_X509 *)d2i_X509((X509 **)val, in, len);
+}
+
+void FC_X509_free(FC_X509 *x)
+{
+    X509_free((X509 *)x);
+}

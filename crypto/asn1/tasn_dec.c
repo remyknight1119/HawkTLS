@@ -6,6 +6,8 @@
 #include <openssl/asn1.h>
 #include <openssl/asn1t.h>
 
+#include <fc_log.h>
+
 FC_ASN1_VALUE *
 FC_ASN1_item_d2i(FC_ASN1_VALUE **val, const fc_u8 **in, long len,
         const FC_ASN1_ITEM *it)
