@@ -19,6 +19,12 @@ FC_EVP_PKEY_id(const FC_EVP_PKEY *pkey)
     return -1;
 }
 
+FC_EVP_PKEY *
+FC_EVP_PKEY_new(void)
+{
+    return (FC_EVP_PKEY *)EVP_PKEY_new();
+}
+
 void
 FC_EVP_PKEY_free(FC_EVP_PKEY *pkey)
 {

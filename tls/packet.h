@@ -262,11 +262,36 @@ static inline int PACKET_copy_bytes(PACKET *pkt, fc_u8 *data, size_t len)
  */
 static inline int PACKET_get_length_prefixed_1(PACKET *pkt, PACKET *subpkt)
 {
-    fc_u32          length = 0;
     const fc_u8     *data = NULL;
+    fc_u32          length = 0;
     PACKET          tmp = *pkt;
 
     if (!PACKET_get_1(&tmp, &length) ||
+        !PACKET_get_bytes(&tmp, &data, (size_t)length)) {
+        return 0;
+    }
+
+    *pkt = tmp;
+    subpkt->pk_curr = data;
+    subpkt->pk_remaining = length;
+
+    return 1;
+}
+
+/*
+ * Reads a variable-length vector prefixed with a two-byte length, and stores
+ * the contents in |subpkt|. |pkt| can equal |subpkt|.
+ * Data is not copied: the |subpkt| packet will share its underlying buffer with
+ * the original |pkt|, so data wrapped by |pkt| must outlive the |subpkt|.
+ * Upon failure, the original |pkt| and |subpkt| are not modified.
+ */
+static inline int PACKET_get_length_prefixed_2(PACKET *pkt, PACKET *subpkt)
+{
+    const fc_u8     *data;
+    fc_u32          length = 0;
+    PACKET          tmp = *pkt;
+
+    if (!PACKET_get_net_2(&tmp, &length) ||
         !PACKET_get_bytes(&tmp, &data, (size_t)length)) {
         return 0;
     }

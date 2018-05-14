@@ -1,31 +1,36 @@
 #include <string.h>
 
-#include <hawktls/hk_bn.h>
-#include <hawktls/hk_crypto.h>
-#include "internal/bn.h"
-#include "hk_bn_lcl.h"
+#include <falcontls/bn.h>
+#include <falcontls/crypto.h>
+#include <internal/bn.h>
+
+#include "bn_lcl.h"
+
+#if !defined(SIXTY_FOUR_BIT_LONG)
+#include <openssl/bn.h>
+#endif
 
 void
-hk_bn_init(HK_BIGNUM *a)
+FC_BN_init(FC_BIGNUM *a)
 {
-	memset(a, 0, sizeof(HK_BIGNUM));
+	memset(a, 0, sizeof(FC_BIGNUM));
 }
 
-HK_BIGNUM *
-hk_bn_new(void)
+FC_BIGNUM *
+FC_BN_new(void)
 {
-	HK_BIGNUM     *ret = NULL;
+	FC_BIGNUM     *ret = NULL;
 
-	if ((ret = hk_calloc(sizeof(HK_BIGNUM))) == NULL) {
+	if ((ret = FALCONTLS_calloc(sizeof(FC_BIGNUM))) == NULL) {
 		return (NULL);
 	}
-	ret->flags = HK_BN_FLG_MALLOCED;
+	ret->flags = FC_BN_FLG_MALLOCED;
 
 	return (ret);
 }
 
 void
-hk_bn_clear_free(HK_BIGNUM *a)
+FC_BN_clear_free(FC_BIGNUM *a)
 {
 	int     i = 0;
 
@@ -35,27 +40,27 @@ hk_bn_clear_free(HK_BIGNUM *a)
 
 	if (a->d != NULL/* && !(BN_get_flags(a, BN_FLG_STATIC_DATA))*/) {
 		memset(a->d, 0, a->dmax * sizeof(a->d[0]));
-		hk_free(a->d);
+		FALCONTLS_free(a->d);
 	}
-	i = hk_bn_get_flags(a, HK_BN_FLG_MALLOCED);
+	i = FC_BN_get_flags(a, FC_BN_FLG_MALLOCED);
 	memset(a, 0, sizeof(*a));
 	if (i) {
-		hk_free(a);
+		FALCONTLS_free(a);
     }
 }
 
 void
-hk_bn_free(HK_BIGNUM *bn)
+FC_BN_free(FC_BIGNUM *bn)
 {
-    hk_bn_clear_free(bn);
+    FC_BN_clear_free(bn);
 }
 
-static HK_BN_ULONG *
-hk_bn_expand_internal(const HK_BIGNUM *b, int words)
+static FC_BN_ULONG *
+FC_BN_expand_internal(const FC_BIGNUM *b, int words)
 {
-    HK_BN_ULONG    *a = NULL;
+    FC_BN_ULONG    *a = NULL;
 
-    a = hk_calloc(words*sizeof(*a));
+    a = FALCONTLS_calloc(words*sizeof(*a));
     if (a == NULL) {
         return NULL;
     }
@@ -67,48 +72,48 @@ hk_bn_expand_internal(const HK_BIGNUM *b, int words)
 /* This is an internal function that should not be used in applications.
  * It ensures that 'b' has enough room for a 'words' word number
  * and initialises any unused part of b->d with leading zeros.
- * It is mostly used by the various HK_BIGNUM routines. If there is an error,
+ * It is mostly used by the various FC_BIGNUM routines. If there is an error,
  * NULL is returned. If not, 'b' is returned. */
 
-HK_BIGNUM *
-hk_bn_expand2(HK_BIGNUM *b, int words)
+FC_BIGNUM *
+FC_BN_expand2(FC_BIGNUM *b, int words)
 {
-	hk_bn_check_top(b);
+	FC_BN_check_top(b);
 
 	if (words > b->dmax) {
-		HK_BN_ULONG *a = hk_bn_expand_internal(b, words);
+		FC_BN_ULONG *a = FC_BN_expand_internal(b, words);
 		if (!a) {
 			return NULL;
         }
 
 		if (b->d) {
 			memset(b->d, 0, b->dmax * sizeof(b->d[0]));
-			hk_free(b->d);
+			FALCONTLS_free(b->d);
 		}
 		b->d = a;
 		b->dmax = words;
 	}
 
-	hk_bn_check_top(b);
+	FC_BN_check_top(b);
 	return b;
 }
 
-HK_BIGNUM *
-hk_bn_expand(HK_BIGNUM *a, int bits)
+FC_BIGNUM *
+FC_BN_expand(FC_BIGNUM *a, int bits)
 {
-	if (bits > (INT_MAX - HK_BN_BITS2 + 1))
+	if (bits > (INT_MAX - FC_BN_BITS2 + 1))
 		return (NULL);
 
-	if (((bits + HK_BN_BITS2 - 1) / HK_BN_BITS2) <= a->dmax)
+	if (((bits + FC_BN_BITS2 - 1) / FC_BN_BITS2) <= a->dmax)
 		return (a);
 
-	return hk_bn_expand2(a, (bits + HK_BN_BITS2 - 1) / HK_BN_BITS2);
+	return FC_BN_expand2(a, (bits + FC_BN_BITS2 - 1) / FC_BN_BITS2);
 }
 
 int
-hk_bn_set_word(HK_BIGNUM *a, HK_BN_ULONG w)
+FC_BN_set_word(FC_BIGNUM *a, FC_BN_ULONG w)
 {
-	if (hk_bn_expand(a, (int)sizeof(HK_BN_ULONG) * 8) == NULL) {
+	if (FC_BN_expand(a, (int)sizeof(FC_BN_ULONG) * 8) == NULL) {
 		return (0);
     }
 
@@ -119,17 +124,17 @@ hk_bn_set_word(HK_BIGNUM *a, HK_BN_ULONG w)
 }
 
 
-HK_BIGNUM *
-hk_bn_bin2bn(const uint8_t *s, int len, HK_BIGNUM *ret)
+FC_BIGNUM *
+FC_BN_bin2bn(const uint8_t *s, int len, FC_BIGNUM *ret)
 {
-	HK_BIGNUM      *bn = NULL;
+	FC_BIGNUM      *bn = NULL;
 	uint32_t    i = 0;
     uint32_t    m = 0;
 	uint32_t    n = 0;
-	HK_BN_ULONG    l = 0;
+	FC_BN_ULONG    l = 0;
 
 	if (ret == NULL) {
-		ret = bn = hk_bn_new();
+		ret = bn = FC_BN_new();
     }
 
 	if (ret == NULL) {
@@ -142,10 +147,10 @@ hk_bn_bin2bn(const uint8_t *s, int len, HK_BIGNUM *ret)
 		ret->top = 0;
 		return (ret);
 	}
-	i = ((n - 1) / HK_BN_BYTES) + 1;
-	m = ((n - 1) % (HK_BN_BYTES));
-	if (hk_bn_wexpand(ret, (int)i) == NULL) {
-		hk_bn_free(bn);
+	i = ((n - 1) / FC_BN_BYTES) + 1;
+	m = ((n - 1) % (FC_BN_BYTES));
+	if (FC_BN_wexpand(ret, (int)i) == NULL) {
+		FC_BN_free(bn);
 		return NULL;
 	}
 	ret->top = i;
@@ -155,36 +160,36 @@ hk_bn_bin2bn(const uint8_t *s, int len, HK_BIGNUM *ret)
 		if (m-- == 0) {
 			ret->d[--i] = l;
 			l = 0;
-			m = HK_BN_BYTES - 1;
+			m = FC_BN_BYTES - 1;
 		}
 	}
 	/* need to call this due to clear byte at top if avoiding
 	 * having the top bit set (-ve number) */
-	hk_bn_correct_top(ret);
+	FC_BN_correct_top(ret);
 	return (ret);
 }
 
 /* ignore negative */
 int
-hk_bn_bn2bin(const HK_BIGNUM *a, unsigned char *to)
+FC_BN_bn2bin(const FC_BIGNUM *a, unsigned char *to)
 {
 	int n, i;
-	HK_BN_ULONG l;
+	FC_BN_ULONG l;
 
-	n = i = hk_bn_num_bytes(a);
+	n = i = FC_BN_num_bytes(a);
 	while (i--) {
-		l = a->d[i / HK_BN_BYTES];
-		*(to++) = (unsigned char)(l >> (8 * (i % HK_BN_BYTES))) & 0xff;
+		l = a->d[i / FC_BN_BYTES];
+		*(to++) = (unsigned char)(l >> (8 * (i % FC_BN_BYTES))) & 0xff;
 	}
 	return (n);
 }
 
 
 int
-hk_bn_ucmp(const HK_BIGNUM *a, const HK_BIGNUM *b)
+FC_BN_ucmp(const FC_BIGNUM *a, const FC_BIGNUM *b)
 {
 	int         i;
-	HK_BN_ULONG t1, t2, *ap, *bp;
+	FC_BN_ULONG t1, t2, *ap, *bp;
 
 	i = a->top - b->top;
 	if (i != 0)
@@ -203,9 +208,10 @@ hk_bn_ucmp(const HK_BIGNUM *a, const HK_BIGNUM *b)
 
 
 int
-hk_bn_num_bits_word(HK_BN_ULONG l)
+FC_BN_num_bits_word(FC_BN_ULONG l)
 {
-	static const unsigned char bits[256] = {
+#if defined(SIXTY_FOUR_BIT_LONG)
+	static const fc_u8 bits[256] = {
 		0, 1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4,
 		5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
 		6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
@@ -249,19 +255,22 @@ hk_bn_num_bits_word(HK_BN_ULONG l)
 			return (bits[(int)(l)]);
 		}
 	}
+#else
+    return BN_num_bits_word(l);
+#endif
 }
 
 int
-hk_bn_num_bits(const HK_BIGNUM *a)
+FC_BN_num_bits(const FC_BIGNUM *a)
 {
 	int     i = a->top - 1;
 
-	hk_bn_check_top(a);
+	FC_BN_check_top(a);
 
-	if (hk_bn_is_zero(a)) {
+	if (FC_BN_is_zero(a)) {
 		return 0;
     }
 
-	return ((i * HK_BN_BITS2) + hk_bn_num_bits_word(a->d[i]));
+	return ((i * FC_BN_BITS2) + FC_BN_num_bits_word(a->d[i]));
 }
 

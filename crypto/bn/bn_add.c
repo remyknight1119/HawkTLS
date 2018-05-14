@@ -1,19 +1,21 @@
 #include <stdio.h>
 
-#include "internal/bn.h"
-#include <hawktls/hk_bn.h>
-#include "hk_bn_lcl.h"
+#include <falcontls/types.h>
+#include <falcontls/bn.h>
+#include <internal/bn.h>
+
+#include "bn_lcl.h"
 
 int
-hk_bn_uadd(HK_BIGNUM *r, const HK_BIGNUM *a, const HK_BIGNUM *b)
+FC_BN_uadd(FC_BIGNUM *r, const FC_BIGNUM *a, const FC_BIGNUM *b)
 {
-    const HK_BIGNUM     *tmp = NULL;
-    HK_BN_ULONG         *ap = NULL;
-    HK_BN_ULONG         *bp = NULL;
-    HK_BN_ULONG         *rp = NULL;
-    HK_BN_ULONG         carry = 0;
-    HK_BN_ULONG         t1 = 0;
-    HK_BN_ULONG         t2 = 0;
+    const FC_BIGNUM     *tmp = NULL;
+    FC_BN_ULONG         *ap = NULL;
+    FC_BN_ULONG         *bp = NULL;
+    FC_BN_ULONG         *rp = NULL;
+    FC_BN_ULONG         carry = 0;
+    FC_BN_ULONG         t1 = 0;
+    FC_BN_ULONG         t2 = 0;
     int                 max = 0;
     int                 min = 0;
     int                 dif = 0;
@@ -27,7 +29,7 @@ hk_bn_uadd(HK_BIGNUM *r, const HK_BIGNUM *a, const HK_BIGNUM *b)
 	min = b->top;
 	dif = max - min;
 
-	if (hk_bn_wexpand(r, max + 1) == NULL) {
+	if (FC_BN_wexpand(r, max + 1) == NULL) {
 		return 0;
     }
 
@@ -37,7 +39,7 @@ hk_bn_uadd(HK_BIGNUM *r, const HK_BIGNUM *a, const HK_BIGNUM *b)
 	bp = b->d;
 	rp = r->d;
 
-	carry = hk_bn_add_words(rp, ap, bp, min);
+	carry = FC_BN_add_words(rp, ap, bp, min);
 	rp += min;
 	ap += min;
 	bp += min;
@@ -46,7 +48,7 @@ hk_bn_uadd(HK_BIGNUM *r, const HK_BIGNUM *a, const HK_BIGNUM *b)
 		while (dif) {
 			dif--;
 			t1 = *(ap++);
-			t2 = (t1 + 1) & HK_BN_MASK2;
+			t2 = (t1 + 1) & FC_BN_MASK2;
 			*(rp++) = t2;
 			if (t2) {
 				carry = 0;

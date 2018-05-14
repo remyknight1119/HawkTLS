@@ -33,6 +33,7 @@ enum {
 #define FC_EVP_MD_CTX_type(e)          FC_EVP_MD_type(FC_EVP_MD_CTX_md(e))
 
 extern int FC_EVP_PKEY_id(const FC_EVP_PKEY *pkey);
+extern FC_EVP_PKEY *FC_EVP_PKEY_new(void);
 extern void FC_EVP_PKEY_free(FC_EVP_PKEY *pkey);
 extern const FC_EVP_CIPHER *
 FC_EVP_CIPHER_CTX_cipher(const FC_EVP_CIPHER_CTX *ctx);

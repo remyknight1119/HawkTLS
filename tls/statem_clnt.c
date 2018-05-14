@@ -3,6 +3,7 @@
 #include <falcontls/types.h>
 #include <falcontls/safestack.h>
 #include <falcontls/x509.h>
+#include <falcontls/bn.h>
 #include <fc_assert.h>
 #include <fc_log.h>
 
@@ -605,46 +606,226 @@ tls_process_server_certificate(TLS *s, PACKET *pkt)
 
 }
 
+static int
+tls_process_ske_dhe(TLS *s, PACKET *pkt, FC_EVP_PKEY **pkey, int *al)
+{
+    FC_EVP_PKEY *peer_tmp = NULL;
+    DH          *dh = NULL;
+    FC_BIGNUM   *p = NULL;
+    FC_BIGNUM   *g = NULL;
+    FC_BIGNUM   *bnpub_key = NULL;
+    PACKET      prime = {};
+    PACKET      generator = {};
+    PACKET      pub_key = {};
+    //int         check_bits = 0;
+
+    if (!PACKET_get_length_prefixed_2(pkt, &prime)
+        || !PACKET_get_length_prefixed_2(pkt, &generator)
+        || !PACKET_get_length_prefixed_2(pkt, &pub_key)) {
+        *al = TLS_AD_DECODE_ERROR;
+        return 0;
+    }
+
+    peer_tmp = FC_EVP_PKEY_new();
+    dh = DH_new();
+
+    if (peer_tmp == NULL || dh == NULL) {
+        *al = TLS_AD_INTERNAL_ERROR;
+        goto err;
+    }
+
+    p = FC_BN_bin2bn(PACKET_data(&prime),
+            PACKET_remaining(&prime), NULL);
+    g = FC_BN_bin2bn(PACKET_data(&generator),
+            PACKET_remaining(&generator), NULL);
+    bnpub_key = FC_BN_bin2bn(PACKET_data(&pub_key),
+            PACKET_remaining(&pub_key),
+                          NULL);
+    if (p == NULL || g == NULL || bnpub_key == NULL) {
+        *al = TLS_AD_INTERNAL_ERROR;
+        goto err;
+    }
+
+#if 0
+    /* test non-zero pubkey */
+    if (BN_is_zero(bnpub_key)) {
+        *al = TLS_AD_DECODE_ERROR;
+        goto err;
+    }
+
+    if (!DH_set0_pqg(dh, p, NULL, g)) {
+        *al = TLS_AD_INTERNAL_ERROR;
+        goto err;
+    }
+    p = g = NULL;
+
+    if (DH_check_params(dh, &check_bits) == 0 || check_bits != 0) {
+        *al = TLS_AD_DECODE_ERROR;
+        goto err;
+    }
+
+    if (!DH_set0_key(dh, bnpub_key, NULL)) {
+        *al = TLS_AD_INTERNAL_ERROR;
+        goto err;
+    }
+    bnpub_key = NULL;
+
+    if (!ssl_security(s, TLS_SECOP_TMP_DH, DH_security_bits(dh), 0, dh)) {
+        *al = TLS_AD_HANDSHAKE_FAILURE;
+        goto err;
+    }
+
+    if (EVP_PKEY_assign_DH(peer_tmp, dh) == 0) {
+        *al = TLS_AD_INTERNAL_ERROR;
+        goto err;
+    }
+
+    s->s3->peer_tmp = peer_tmp;
+
+    /*
+     * FIXME: This makes assumptions about which ciphersuites come with
+     * public keys. We should have a less ad-hoc way of doing this
+     */
+    if (s->tls_tmp.tm_new_cipher->cp_algorithm_auth & TLS_aRSA)
+        *pkey = X509_get0_pubkey(s->session->peer);
+#endif
+    /* else anonymous DH, so no certificate or pkey. */
+
+    return 1;
+
+ err:
+    BN_free(p);
+    BN_free(g);
+    BN_free(bnpub_key);
+    DH_free(dh);
+    FC_EVP_PKEY_free(peer_tmp);
+
+    return 0;
+}
+
+static int
+tls_process_ske_ecdhe(TLS *s, PACKET *pkt, FC_EVP_PKEY **pkey, int *al)
+{
+#if 0
+    PACKET encoded_pt;
+    const unsigned char *ecparams;
+    int curve_nid;
+    unsigned int curve_flags;
+    EVP_PKEY_CTX *pctx = NULL;
+
+    /*
+     * Extract elliptic curve parameters and the server's ephemeral ECDH
+     * public key. For now we only support named (not generic) curves and
+     * ECParameters in this case is just three bytes.
+     */
+    if (!PACKET_get_bytes(pkt, &ecparams, 3)) {
+        *al = TLS_AD_DECODE_ERROR;
+        return 0;
+    }
+    /*
+     * Check curve is one of our preferences, if not server has sent an
+     * invalid curve. ECParameters is 3 bytes.
+     */
+    if (!tls1_check_curve(s, ecparams, 3)) {
+        *al = TLS_AD_DECODE_ERROR;
+        return 0;
+    }
+
+    curve_nid = tls1_ec_curve_id2nid(*(ecparams + 2), &curve_flags);
+
+    if (curve_nid == 0) {
+        *al = TLS_AD_INTERNAL_ERROR;
+        return 0;
+    }
+
+    if ((curve_flags & TLS_CURVE_TYPE) == TLS_CURVE_CUSTOM) {
+        EVP_PKEY *key = EVP_PKEY_new();
+
+        if (key == NULL || !EVP_PKEY_set_type(key, curve_nid)) {
+            *al = TLS_AD_INTERNAL_ERROR;
+            SSLerr(TLS_F_TLS_PROCESS_SKE_ECDHE, ERR_R_EVP_LIB);
+            EVP_PKEY_free(key);
+            return 0;
+        }
+        s->s3->peer_tmp = key;
+    } else {
+        /* Set up EVP_PKEY with named curve as parameters */
+        pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_EC, NULL);
+        if (pctx == NULL
+            || EVP_PKEY_paramgen_init(pctx) <= 0
+            || EVP_PKEY_CTX_set_ec_paramgen_curve_nid(pctx, curve_nid) <= 0
+            || EVP_PKEY_paramgen(pctx, &s->s3->peer_tmp) <= 0) {
+            *al = TLS_AD_INTERNAL_ERROR;
+            SSLerr(TLS_F_TLS_PROCESS_SKE_ECDHE, ERR_R_EVP_LIB);
+            EVP_PKEY_CTX_free(pctx);
+            return 0;
+        }
+        EVP_PKEY_CTX_free(pctx);
+        pctx = NULL;
+    }
+
+    if (!PACKET_get_length_prefixed_1(pkt, &encoded_pt)) {
+        *al = TLS_AD_DECODE_ERROR;
+        SSLerr(TLS_F_TLS_PROCESS_SKE_ECDHE, TLS_R_LENGTH_MISMATCH);
+        return 0;
+    }
+
+    if (!EVP_PKEY_set1_tls_encodedpoint(s->s3->peer_tmp,
+                                        PACKET_data(&encoded_pt),
+                                        PACKET_remaining(&encoded_pt))) {
+        *al = TLS_AD_DECODE_ERROR;
+        SSLerr(TLS_F_TLS_PROCESS_SKE_ECDHE, TLS_R_BAD_ECPOINT);
+        return 0;
+    }
+
+    /*
+     * The ECC/TLS specification does not mention the use of DSA to sign
+     * ECParameters in the server key exchange message. We do support RSA
+     * and ECDSA.
+     */
+    if (s->s3->tmp.new_cipher->algorithm_auth & TLS_aECDSA)
+        *pkey = X509_get0_pubkey(s->session->peer);
+    else if (s->s3->tmp.new_cipher->algorithm_auth & TLS_aRSA)
+        *pkey = X509_get0_pubkey(s->session->peer);
+    /* else anonymous ECDH, so no certificate or pkey. */
+
+#endif
+    return 1;
+}
+
 static MSG_PROCESS_RETURN
 tls_process_key_exchange(TLS *s, PACKET *pkt)
 {
+    FC_EVP_PKEY     *pkey = NULL;
+    //PACKET          save_param_start = {};
+    //PACKET          signature = {};
+    long            alg_k;
+    int             al = -1;
+
+    alg_k = s->tls_tmp.tm_new_cipher->cp_algorithm_mkey;
+
+    //save_param_start = *pkt;
+
 #if 0
-    int al = -1;
-    long alg_k;
-    EVP_PKEY *pkey = NULL;
-    PACKET save_param_start, signature;
-
-    alg_k = s->s3->tmp.new_cipher->algorithm_mkey;
-
-    save_param_start = *pkt;
-
-#if !defined(OPENSSL_NO_EC) || !defined(OPENSSL_NO_DH)
     EVP_PKEY_free(s->s3->peer_tmp);
     s->s3->peer_tmp = NULL;
 #endif
 
-    if (alg_k & SSL_PSK) {
-        if (!tls_process_ske_psk_preamble(s, pkt, &al))
-            goto err;
-    }
-
     /* Nothing else to do for plain PSK or RSAPSK */
-    if (alg_k & (SSL_kPSK | SSL_kRSAPSK)) {
-    } else if (alg_k & SSL_kSRP) {
-        if (!tls_process_ske_srp(s, pkt, &pkey, &al))
+    if (alg_k & TLS_kDHE) {
+        if (!tls_process_ske_dhe(s, pkt, &pkey, &al)) {
             goto err;
-    } else if (alg_k & (SSL_kDHE | SSL_kDHEPSK)) {
-        if (!tls_process_ske_dhe(s, pkt, &pkey, &al))
+        }
+    } else if (alg_k & TLS_kECDHE) {
+        if (!tls_process_ske_ecdhe(s, pkt, &pkey, &al)) {
             goto err;
-    } else if (alg_k & (SSL_kECDHE | SSL_kECDHEPSK)) {
-        if (!tls_process_ske_ecdhe(s, pkt, &pkey, &al))
-            goto err;
+        }
     } else if (alg_k) {
-        al = SSL_AD_UNEXPECTED_MESSAGE;
-        SSLerr(SSL_F_TLS_PROCESS_KEY_EXCHANGE, SSL_R_UNEXPECTED_MESSAGE);
+        al = TLS_AD_UNEXPECTED_MESSAGE;
         goto err;
     }
 
+#if 0
     /* if it was signed, check the signature */
     if (pkey != NULL) {
         PACKET params;
@@ -659,30 +840,27 @@ tls_process_key_exchange(TLS *s, PACKET *pkt)
         if (!PACKET_get_sub_packet(&save_param_start, &params,
                                    PACKET_remaining(&save_param_start) -
                                    PACKET_remaining(pkt))) {
-            al = SSL_AD_INTERNAL_ERROR;
-            SSLerr(SSL_F_TLS_PROCESS_KEY_EXCHANGE, ERR_R_INTERNAL_ERROR);
+            al = TLS_AD_INTERNAL_ERROR;
+            SSLerr(TLS_F_TLS_PROCESS_KEY_EXCHANGE, ERR_R_INTERNAL_ERROR);
             goto err;
         }
 
-        if (SSL_USE_SIGALGS(s)) {
+        if (TLS_USE_SIGALGS(s)) {
             const unsigned char *sigalgs;
             int rv;
             if (!PACKET_get_bytes(pkt, &sigalgs, 2)) {
-                al = SSL_AD_DECODE_ERROR;
-                SSLerr(SSL_F_TLS_PROCESS_KEY_EXCHANGE, SSL_R_LENGTH_TOO_SHORT);
+                al = TLS_AD_DECODE_ERROR;
+                SSLerr(TLS_F_TLS_PROCESS_KEY_EXCHANGE, TLS_R_LENGTH_TOO_SHORT);
                 goto err;
             }
             rv = tls12_check_peer_sigalg(&md, s, sigalgs, pkey);
             if (rv == -1) {
-                al = SSL_AD_INTERNAL_ERROR;
+                al = TLS_AD_INTERNAL_ERROR;
                 goto err;
             } else if (rv == 0) {
-                al = SSL_AD_DECODE_ERROR;
+                al = TLS_AD_DECODE_ERROR;
                 goto err;
             }
-#ifdef SSL_DEBUG
-            fprintf(stderr, "USING TLSv1.2 HASH %s\n", EVP_MD_name(md));
-#endif
         } else if (EVP_PKEY_id(pkey) == EVP_PKEY_RSA) {
             md = EVP_md5_sha1();
         } else {
@@ -691,14 +869,14 @@ tls_process_key_exchange(TLS *s, PACKET *pkt)
 
         if (!PACKET_get_length_prefixed_2(pkt, &signature)
             || PACKET_remaining(pkt) != 0) {
-            al = SSL_AD_DECODE_ERROR;
-            SSLerr(SSL_F_TLS_PROCESS_KEY_EXCHANGE, SSL_R_LENGTH_MISMATCH);
+            al = TLS_AD_DECODE_ERROR;
+            SSLerr(TLS_F_TLS_PROCESS_KEY_EXCHANGE, TLS_R_LENGTH_MISMATCH);
             goto err;
         }
         maxsig = EVP_PKEY_size(pkey);
         if (maxsig < 0) {
-            al = SSL_AD_INTERNAL_ERROR;
-            SSLerr(SSL_F_TLS_PROCESS_KEY_EXCHANGE, ERR_R_INTERNAL_ERROR);
+            al = TLS_AD_INTERNAL_ERROR;
+            SSLerr(TLS_F_TLS_PROCESS_KEY_EXCHANGE, ERR_R_INTERNAL_ERROR);
             goto err;
         }
 
@@ -707,16 +885,16 @@ tls_process_key_exchange(TLS *s, PACKET *pkt)
          */
         if (PACKET_remaining(&signature) > (size_t)maxsig) {
             /* wrong packet length */
-            al = SSL_AD_DECODE_ERROR;
-            SSLerr(SSL_F_TLS_PROCESS_KEY_EXCHANGE,
-                   SSL_R_WRONG_SIGNATURE_LENGTH);
+            al = TLS_AD_DECODE_ERROR;
+            SSLerr(TLS_F_TLS_PROCESS_KEY_EXCHANGE,
+                   TLS_R_WRONG_SIGNATURE_LENGTH);
             goto err;
         }
 
         md_ctx = EVP_MD_CTX_new();
         if (md_ctx == NULL) {
-            al = SSL_AD_INTERNAL_ERROR;
-            SSLerr(SSL_F_TLS_PROCESS_KEY_EXCHANGE, ERR_R_MALLOC_FAILURE);
+            al = TLS_AD_INTERNAL_ERROR;
+            SSLerr(TLS_F_TLS_PROCESS_KEY_EXCHANGE, ERR_R_MALLOC_FAILURE);
             goto err;
         }
 
@@ -728,47 +906,46 @@ tls_process_key_exchange(TLS *s, PACKET *pkt)
             || EVP_VerifyUpdate(md_ctx, PACKET_data(&params),
                                 PACKET_remaining(&params)) <= 0) {
             EVP_MD_CTX_free(md_ctx);
-            al = SSL_AD_INTERNAL_ERROR;
-            SSLerr(SSL_F_TLS_PROCESS_KEY_EXCHANGE, ERR_R_EVP_LIB);
+            al = TLS_AD_INTERNAL_ERROR;
+            SSLerr(TLS_F_TLS_PROCESS_KEY_EXCHANGE, ERR_R_EVP_LIB);
             goto err;
         }
         if (EVP_VerifyFinal(md_ctx, PACKET_data(&signature),
                             PACKET_remaining(&signature), pkey) <= 0) {
             /* bad signature */
             EVP_MD_CTX_free(md_ctx);
-            al = SSL_AD_DECRYPT_ERROR;
-            SSLerr(SSL_F_TLS_PROCESS_KEY_EXCHANGE, SSL_R_BAD_SIGNATURE);
+            al = TLS_AD_DECRYPT_ERROR;
+            SSLerr(TLS_F_TLS_PROCESS_KEY_EXCHANGE, TLS_R_BAD_SIGNATURE);
             goto err;
         }
         EVP_MD_CTX_free(md_ctx);
     } else {
         /* aNULL, aSRP or PSK do not need public keys */
-        if (!(s->s3->tmp.new_cipher->algorithm_auth & (SSL_aNULL | SSL_aSRP))
-            && !(alg_k & SSL_PSK)) {
+        if (!(s->s3->tmp.new_cipher->algorithm_auth & (TLS_aNULL | TLS_aSRP))
+            && !(alg_k & TLS_PSK)) {
             /* Might be wrong key type, check it */
             if (ssl3_check_cert_and_algorithm(s)) {
                 /* Otherwise this shouldn't happen */
-                al = SSL_AD_INTERNAL_ERROR;
-                SSLerr(SSL_F_TLS_PROCESS_KEY_EXCHANGE, ERR_R_INTERNAL_ERROR);
+                al = TLS_AD_INTERNAL_ERROR;
+                SSLerr(TLS_F_TLS_PROCESS_KEY_EXCHANGE, ERR_R_INTERNAL_ERROR);
             } else {
-                al = SSL_AD_DECODE_ERROR;
+                al = TLS_AD_DECODE_ERROR;
             }
             goto err;
         }
         /* still data left over */
         if (PACKET_remaining(pkt) != 0) {
-            al = SSL_AD_DECODE_ERROR;
-            SSLerr(SSL_F_TLS_PROCESS_KEY_EXCHANGE, SSL_R_EXTRA_DATA_IN_MESSAGE);
+            al = TLS_AD_DECODE_ERROR;
             goto err;
         }
     }
 
+#endif
     return MSG_PROCESS_CONTINUE_READING;
  err:
-    if (al != -1)
-        ssl3_send_alert(s, SSL3_AL_FATAL, al);
-    ossl_statem_set_error(s);
-#endif
+    if (al != -1) {
+        tls_send_alert(s, TLS_AL_FATAL, al);
+    }
     FC_LOG("error\n");
     return MSG_PROCESS_ERROR;
 }
