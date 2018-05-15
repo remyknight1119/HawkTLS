@@ -22,6 +22,7 @@ typedef struct tls_cipher_t TLS_CIPHER;
 FC_STACK_OF(TLS_CIPHER);
 
 typedef struct fc_bn_t FC_BIGNUM;
+typedef struct fc_dh_t FC_DH;
 typedef struct fc_x509_t FC_X509;
 typedef struct fc_x509_cinf_t FC_X509_CINF;
 typedef struct FC_X509_algor_t FC_X509_ALGOR;

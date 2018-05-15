@@ -4,6 +4,8 @@
 #include <falcontls/safestack.h>
 #include <falcontls/x509.h>
 #include <falcontls/bn.h>
+#include <internal/bn.h>
+#include <falcontls/dh.h>
 #include <fc_assert.h>
 #include <fc_log.h>
 
@@ -610,14 +612,14 @@ static int
 tls_process_ske_dhe(TLS *s, PACKET *pkt, FC_EVP_PKEY **pkey, int *al)
 {
     FC_EVP_PKEY *peer_tmp = NULL;
-    DH          *dh = NULL;
+    FC_DH       *dh = NULL;
     FC_BIGNUM   *p = NULL;
     FC_BIGNUM   *g = NULL;
     FC_BIGNUM   *bnpub_key = NULL;
     PACKET      prime = {};
     PACKET      generator = {};
     PACKET      pub_key = {};
-    //int         check_bits = 0;
+    int         check_bits = 0;
 
     if (!PACKET_get_length_prefixed_2(pkt, &prime)
         || !PACKET_get_length_prefixed_2(pkt, &generator)
@@ -627,7 +629,7 @@ tls_process_ske_dhe(TLS *s, PACKET *pkt, FC_EVP_PKEY **pkey, int *al)
     }
 
     peer_tmp = FC_EVP_PKEY_new();
-    dh = DH_new();
+    dh = FC_DH_new();
 
     if (peer_tmp == NULL || dh == NULL) {
         *al = TLS_AD_INTERNAL_ERROR;
@@ -646,58 +648,59 @@ tls_process_ske_dhe(TLS *s, PACKET *pkt, FC_EVP_PKEY **pkey, int *al)
         goto err;
     }
 
-#if 0
     /* test non-zero pubkey */
-    if (BN_is_zero(bnpub_key)) {
+    if (FC_BN_is_zero(bnpub_key)) {
         *al = TLS_AD_DECODE_ERROR;
         goto err;
     }
 
-    if (!DH_set0_pqg(dh, p, NULL, g)) {
+    if (!FC_DH_set0_pqg(dh, p, NULL, g)) {
         *al = TLS_AD_INTERNAL_ERROR;
         goto err;
     }
     p = g = NULL;
 
-    if (DH_check_params(dh, &check_bits) == 0 || check_bits != 0) {
+    if (FC_DH_check_params(dh, &check_bits) == 0 || check_bits != 0) {
         *al = TLS_AD_DECODE_ERROR;
         goto err;
     }
 
-    if (!DH_set0_key(dh, bnpub_key, NULL)) {
+    if (!FC_DH_set0_key(dh, bnpub_key, NULL)) {
         *al = TLS_AD_INTERNAL_ERROR;
         goto err;
     }
     bnpub_key = NULL;
 
-    if (!ssl_security(s, TLS_SECOP_TMP_DH, DH_security_bits(dh), 0, dh)) {
+#if 0
+    if (!tls_security(s, TLS_SECOP_TMP_DH, DH_security_bits(dh), 0, dh)) {
         *al = TLS_AD_HANDSHAKE_FAILURE;
         goto err;
     }
+#endif
 
-    if (EVP_PKEY_assign_DH(peer_tmp, dh) == 0) {
+    if (FC_EVP_PKEY_assign_DH(peer_tmp, dh) == 0) {
         *al = TLS_AD_INTERNAL_ERROR;
         goto err;
     }
 
-    s->s3->peer_tmp = peer_tmp;
+    s->tls1.st_peer_tmp = peer_tmp;
 
     /*
      * FIXME: This makes assumptions about which ciphersuites come with
      * public keys. We should have a less ad-hoc way of doing this
      */
-    if (s->tls_tmp.tm_new_cipher->cp_algorithm_auth & TLS_aRSA)
-        *pkey = X509_get0_pubkey(s->session->peer);
-#endif
+    if (s->tls_tmp.tm_new_cipher->cp_algorithm_auth & TLS_aRSA) {
+        *pkey = FC_X509_get0_pubkey(s->tls_session->se_peer);
+    }
     /* else anonymous DH, so no certificate or pkey. */
 
     return 1;
 
  err:
-    BN_free(p);
-    BN_free(g);
-    BN_free(bnpub_key);
-    DH_free(dh);
+    FC_BN_free(p);
+    FC_BN_free(g);
+    FC_BN_free(bnpub_key);
+    FC_DH_free(dh);
     FC_EVP_PKEY_free(peer_tmp);
 
     return 0;
@@ -706,12 +709,11 @@ tls_process_ske_dhe(TLS *s, PACKET *pkt, FC_EVP_PKEY **pkey, int *al)
 static int
 tls_process_ske_ecdhe(TLS *s, PACKET *pkt, FC_EVP_PKEY **pkey, int *al)
 {
-#if 0
-    PACKET encoded_pt;
-    const unsigned char *ecparams;
-    int curve_nid;
-    unsigned int curve_flags;
-    EVP_PKEY_CTX *pctx = NULL;
+    const fc_u8     *ecparams = NULL;
+    //FC_EVP_PKEY_CTX *pctx = NULL;
+    //PACKET          encoded_pt = {};
+    //fc_u32          curve_flags;
+    //int             curve_nid;
 
     /*
      * Extract elliptic curve parameters and the server's ephemeral ECDH
@@ -720,12 +722,14 @@ tls_process_ske_ecdhe(TLS *s, PACKET *pkt, FC_EVP_PKEY **pkey, int *al)
      */
     if (!PACKET_get_bytes(pkt, &ecparams, 3)) {
         *al = TLS_AD_DECODE_ERROR;
+        FC_LOG("Decode error!\n");
         return 0;
     }
     /*
      * Check curve is one of our preferences, if not server has sent an
      * invalid curve. ECParameters is 3 bytes.
      */
+#if 0
     if (!tls1_check_curve(s, ecparams, 3)) {
         *al = TLS_AD_DECODE_ERROR;
         return 0;
@@ -814,13 +818,16 @@ tls_process_key_exchange(TLS *s, PACKET *pkt)
     /* Nothing else to do for plain PSK or RSAPSK */
     if (alg_k & TLS_kDHE) {
         if (!tls_process_ske_dhe(s, pkt, &pkey, &al)) {
+            FC_LOG("Process DHE failed!\n");
             goto err;
         }
     } else if (alg_k & TLS_kECDHE) {
         if (!tls_process_ske_ecdhe(s, pkt, &pkey, &al)) {
+            FC_LOG("Process ECDHE failed!\n");
             goto err;
         }
     } else if (alg_k) {
+        FC_LOG("Unknown alg_k %lu!\n", alg_k);
         al = TLS_AD_UNEXPECTED_MESSAGE;
         goto err;
     }
@@ -946,7 +953,7 @@ tls_process_key_exchange(TLS *s, PACKET *pkt)
     if (al != -1) {
         tls_send_alert(s, TLS_AL_FATAL, al);
     }
-    FC_LOG("error\n");
+    
     return MSG_PROCESS_ERROR;
 }
 

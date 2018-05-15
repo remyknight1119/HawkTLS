@@ -36,3 +36,9 @@ FC_EVP_PKEY_missing_parameters(const FC_EVP_PKEY *pkey)
 {
     return EVP_PKEY_missing_parameters((const EVP_PKEY *)pkey);
 }
+
+int
+FC_EVP_PKEY_assign(FC_EVP_PKEY *pkey, int type, void *key)
+{
+    return EVP_PKEY_assign((EVP_PKEY *)pkey, type, key);
+}

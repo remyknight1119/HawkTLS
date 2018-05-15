@@ -430,4 +430,9 @@ end:
     return ret;
 }
 
+int
+tls_security(const TLS *s, int op, int bits, int nid, void *other)
+{
+    return FC_OK;
+}
 

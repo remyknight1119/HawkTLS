@@ -128,9 +128,9 @@ FC_BIGNUM *
 FC_BN_bin2bn(const uint8_t *s, int len, FC_BIGNUM *ret)
 {
 	FC_BIGNUM      *bn = NULL;
-	uint32_t    i = 0;
-    uint32_t    m = 0;
-	uint32_t    n = 0;
+	uint32_t        i = 0;
+    uint32_t        m = 0;
+	uint32_t        n = 0;
 	FC_BN_ULONG    l = 0;
 
 	if (ret == NULL) {

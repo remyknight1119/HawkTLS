@@ -162,7 +162,7 @@ extern int FCTLS_CTX_use_certificate_file(TLS_CTX *ctx,
 extern int FCTLS_CTX_use_PrivateKey_file(TLS_CTX *ctx, const char *file,
             fc_u32 type);
 extern int FCTLS_CTX_check_private_key(const TLS_CTX *ctx);
-
+extern int tls_security(const TLS *s, int op, int bits, int nid, void *other);
 
 extern void FCTLS_free(TLS *s);
 extern int FCTLS_bio_accept(TLS *s);

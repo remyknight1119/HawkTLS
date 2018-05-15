@@ -124,11 +124,12 @@ typedef struct tls_cert_t {
 } CERT;
 
 typedef struct tls1_state_t {
-    fc_u8   st_server_random[TLS_RANDOM_SIZE];
-    fc_u8   st_client_random[TLS_RANDOM_SIZE];
-    int     st_alert_dispatch;
-    int     st_change_cipher_spec;
-    int     st_send_connection_binding;
+    fc_u8       st_server_random[TLS_RANDOM_SIZE];
+    fc_u8       st_client_random[TLS_RANDOM_SIZE];
+    int         st_alert_dispatch;
+    int         st_change_cipher_spec;
+    int         st_send_connection_binding;
+    FC_EVP_PKEY *st_peer_tmp;
 } TLS1_STATE;
 
 typedef struct tls_session_t {
