@@ -2,7 +2,8 @@ lib_LTLIBRARIES = libfc_tls.la
 libfc_tls_la_SOURCES = tls_lib.c tls_cert.c tls1_2.c statem.c method.c \
 					   t1_lib.c record_buffer.c statem_lib.c statem_srvr.c \
 					   statem_clnt.c alert.c record_enc1_2.c record_layer.c \
-					   tls_session.c tls_cipher.c tls1_record.c tls1_enc.c
+					   tls_session.c tls_cipher.c tls1_record.c tls1_enc.c \
+					   packet.c
 libfc_tls_la_LDFLAGS = -version-info 1
 libfc_tls_la_LIBADD = $(srcdir)/../crypto/libfc_crypto.la
 

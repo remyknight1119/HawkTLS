@@ -98,6 +98,8 @@ typedef enum {
 #define TLS_USE_EXPLICIT_IV(s)  \
         (s->tls_method->md_enc->em_enc_flags & TLS_ENC_FLAG_EXPLICIT_IV)
 
+#define TLS_IS_DTLS(s)  0
+
 #define n2s(c,s)        ((s=(((fc_u32)((c)[0]))<< 8)| \
                              (((fc_u32)((c)[1]))    )),(c)+=2)
 #define s2n(s,c)        (((c)[0]=(fc_u8)(((s)>> 8)&0xff), \

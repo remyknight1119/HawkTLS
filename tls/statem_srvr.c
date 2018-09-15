@@ -50,7 +50,8 @@ tls_statem_server_post_work(TLS *s, WORK_STATE wst)
 }
 
 int
-tls_statem_server_construct_message(TLS *s)
+tls_statem_server_construct_message(TLS *s, WPACKET *pkt,
+                confunc_f *confunc, int *mt)
 {
     return 0;
 }

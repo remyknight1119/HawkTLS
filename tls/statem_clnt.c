@@ -45,6 +45,18 @@ static const CLIENT_PROCESS tls_statem_client_process[] = {
 
 #define TLS_CLIENT_PROCESS_NUM  FC_ARRAY_SIZE(tls_statem_client_process)
 
+static int tls_construct_client_hello(TLS *s, WPACKET *pkt);
+
+static const CONSTRUCT_MESSAGE tls_state_client_construct[] = {
+    {
+        .cm_hand_state = TLS_ST_CW_CLNT_HELLO,
+        .cm_message_type = TLS1_MT_CHANGE_CIPHER_SPEC,
+        .cm_tls_confunc = tls_construct_client_hello,
+    },
+}
+
+#define TLS_CLIENT_CONSTRUCT_NUM  FC_ARRAY_SIZE(tls_statem_client_construct)
+
 static TLS_CLNT_PROC_F tls_statem_client_proc_func[TLS_ST_SW_MAX];
 
 void
@@ -343,7 +355,7 @@ tls_process_server_hello(TLS *s, PACKET *pkt)
     session_id_len = PACKET_remaining(&session_id);
     if (session_id_len > sizeof(session->se_session_id)
         || session_id_len > TLS_SESSION_ID_SIZE) {
-        FC_LOG("Session id length invalid(%d)\n", session_id_len);
+        FC_LOG("Session id length invalid(%d)\n", (int)session_id_len);
         al = TLS_AD_ILLEGAL_PARAMETER;
         goto f_err;
     }
@@ -1018,7 +1030,7 @@ tls_cipher_list_to_bytes(TLS *s, FC_STACK_OF(TLS_CIPHER) *sk, fc_u8 *p)
 }
 
 static int
-tls_construct_client_hello(TLS *s)
+tls_construct_client_hello(TLS *s, WPACKET *pkt)
 {
     //fc_u8       *buf = NULL;
     fc_u8       *p = NULL;
@@ -1126,19 +1138,24 @@ tls_construct_client_hello(TLS *s)
     return 0;
 }
 
-
 int
-tls_statem_client_construct_message(TLS *s)
+tls_statem_client_construct_message(TLS *s, WPACKET *pkt,
+                confunc_f *confunc, int *mt)
 {
     TLS_STATEM  *st = &s->tls_statem;
+    int         i = 0;
 
-    switch (st->sm_hand_state) {
-        case TLS_ST_CW_CLNT_HELLO:
-            return tls_construct_client_hello(s);
- 
-        default:
+    for (i = 0; i < TLS_CLIENT_CONSTRUCT_NUM; i++) {
+        if (tls_state_client_construct[i].cm_hand_state == st->sm_hand_state) {
+            if (TLS_IS_DTLS(s)) {
+                *confunc = tls_state_client_construct[i].cm_dtls_confunc;
+            } else {
+                *confunc = tls_state_client_construct[i].cm_tls_confunc;
+            }
+            *mt = tls_state_client_construct[i].cm_message_type;
             break;
+        }
     }
 
-    return 0;
+    return 1;
 }

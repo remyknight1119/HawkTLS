@@ -213,7 +213,12 @@ write_state_machine(TLS *s)
     WRITE_TRAN      (*transition)(TLS *s);
     WORK_STATE      (*pre_work)(TLS *s, WORK_STATE wst);
     WORK_STATE      (*post_work)(TLS *s, WORK_STATE wst);
-    int             (*construct_message)(TLS *s);
+    int             (*construct_message)(TLS *s, WPACKET *pkt,          
+                        int (**confunc) (TLS *s, WPACKET *pkt),
+                        int *mt);
+    int             (*confunc) (TLS *s, WPACKET *pkt);
+    WPACKET         pkt;
+    int             mt;
     int             ret = 0;
 
     if (s->tls_server) {
@@ -260,8 +265,31 @@ write_state_machine(TLS *s)
             case WORK_FINISHED_STOP:
                 return SUB_STATE_END_HANDSHAKE;
             }
-            if (construct_message(s) == 0) {
+            if (construct_message(s, &pkt, &confunc, &mt) == 0) {
                 FC_LOG("Error\n");
+                return SUB_STATE_ERROR;
+            }
+
+#if 0
+            if (mt == SSL3_MT_DUMMY) {
+                /* Skip construction and sending. This isn't a "real" state */
+                st->write_state = WRITE_STATE_POST_WORK;
+                st->write_state_work = WORK_MORE_A;
+                break;
+            }
+#endif
+            if (!WPACKET_init(&pkt, s->tls_init_buf)
+                    || !tls_set_handshake_header(s, &pkt, mt)) {
+                WPACKET_cleanup(&pkt);
+                return SUB_STATE_ERROR;
+            }
+            if (confunc != NULL && !confunc(s, &pkt)) {
+                WPACKET_cleanup(&pkt);
+                return SUB_STATE_ERROR;
+            }
+            if (!ssl_close_construct_packet(s, &pkt, mt)
+                    || !WPACKET_finish(&pkt)) {
+                WPACKET_cleanup(&pkt);
                 return SUB_STATE_ERROR;
             }
 
